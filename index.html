@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Cadete A · C.D. San Pedro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0F1E3D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cadete A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --navy:#0F1E3D; --navy-2:#17294D; --red:#D22630; --red-dark:#A81B24;
+  --bg:#F3F4F7; --card:#FFFFFF; --text:#1A2333; --muted:#707786; --border:#E4E6EC;
+  --radius:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);}
+h1,h2,h3{font-family:'Oswald',sans-serif;letter-spacing:.02em;margin:0;}
+button,input,select{font-family:'Inter',sans-serif;}
+#app{display:flex;flex-direction:column;min-height:100vh;}
+
+.topbar{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;padding:16px 18px calc(16px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;}
+.crest{width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;flex-shrink:0;border:2px solid rgba(255,255,255,.35);}
+.titles h1{font-size:19px;text-transform:uppercase;}
+.titles span{font-size:11px;opacity:.75;}
+
+main#content{flex:1;padding:16px 16px calc(92px + env(safe-area-inset-bottom,0px));max-width:720px;margin:0 auto;width:100%;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom,0px);z-index:20;}
+.nav-btn{flex:1;background:none;border:none;padding:9px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:10.5px;cursor:pointer;}
+.nav-btn svg{width:21px;height:21px;}
+.nav-btn.active{color:var(--navy);font-weight:600;}
+.nav-btn.active svg{color:var(--red);}
+
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;}
+.section-header h2{font-size:19px;text-transform:uppercase;color:var(--navy);}
+
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(15,30,61,.07);}
+.card h3{font-size:14px;text-transform:uppercase;color:var(--navy);margin-bottom:10px;letter-spacing:.03em;}
+
+.btn-primary,.btn-secondary,.btn-danger,.btn-small{font-weight:600;border:none;border-radius:10px;cursor:pointer;}
+.btn-primary{background:var(--red);color:#fff;padding:10px 16px;font-size:14px;}
+.btn-secondary{background:#EEF0F4;color:var(--text);padding:10px 16px;font-size:14px;}
+.btn-danger{background:#FBEAEA;color:var(--red-dark);padding:10px 16px;font-size:14px;width:100%;}
+.btn-small{background:var(--navy);color:#fff;padding:7px 11px;font-size:12px;}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--navy);padding:7px 11px;font-size:11.5px;border-radius:9px;font-weight:600;cursor:pointer;}
+.icon-btn{background:none;border:none;font-size:15px;padding:6px 7px;cursor:pointer;color:var(--muted);border-radius:8px;}
+.icon-btn.danger{color:var(--red);}
+
+.list-simple{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.list-row{background:var(--card);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 2px rgba(15,30,61,.05);}
+.list-name{flex:1;font-size:14px;}
+.row-actions{display:flex;gap:2px;margin-left:auto;flex-shrink:0;}
+
+.dorsal-badge{width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;flex-shrink:0;}
+.dorsal-badge.small{width:24px;height:24px;font-size:11px;}
+
+.empty-state{text-align:center;padding:30px 16px;color:var(--muted);}
+.empty-state p{margin:0 0 14px;font-size:14px;}
+
+label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:12px;}
+label input,label select{width:100%;margin-top:5px;padding:10px;border:1px solid var(--border);border-radius:9px;font-size:15px;background:#fff;color:var(--text);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+.inline-form{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.inline-form input{width:80px;padding:9px;border:1px solid var(--border);border-radius:9px;}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.table-scroll{overflow-x:auto;margin:0 -4px;padding:0 4px;}
+th{text-align:left;padding:8px 6px;color:var(--muted);font-size:10.5px;text-transform:uppercase;border-bottom:2px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none;}
+th.sort-active{color:var(--navy);}
+td{padding:9px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
+
+.totales-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.total-box{background:var(--bg);border-radius:12px;padding:14px;text-align:center;}
+.total-label{display:block;font-size:10.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;letter-spacing:.03em;}
+.total-value{font-family:'Oswald',sans-serif;font-size:23px;font-weight:600;color:var(--navy);}
+
+.alert-banner{background:#FFF4E5;border:1px solid #F3C57A;color:#8A5A00;padding:12px 14px;border-radius:12px;margin-bottom:14px;font-size:13px;display:flex;align-items:center;gap:8px;}
+.info-banner{background:#EAF1FF;border:1px solid #B9D3F7;color:#1B4B91;padding:12px 14px;border-radius:12px;margin-bottom:14px;font-size:12.5px;line-height:1.4;}
+
+.row-overdue{background:rgba(210,38,48,.045);}
+.row-debt{background:rgba(210,38,48,.045);}
+
+.partido-card{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.partido-info{display:flex;flex-direction:column;gap:2px;}
+.muted{color:var(--muted);font-size:12px;}
+.small{font-size:10.5px;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(15,20,35,.55);display:flex;align-items:flex-end;justify-content:center;z-index:100;}
+.modal-overlay.hidden{display:none;}
+.modal{background:#fff;border-radius:20px 20px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom,0px));width:100%;max-width:480px;max-height:85vh;overflow-y:auto;animation:slideUp .22s ease;}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:none;opacity:1;}}
+.modal h3{margin-bottom:14px;font-size:16px;color:var(--navy);text-transform:uppercase;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
+.hint{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.4;}
+
+.conv-toolbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.convocatoria-list{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow-y:auto;}
+.convocatoria-row{display:flex;flex-direction:column;gap:7px;padding:8px 0;border-bottom:1px solid var(--border);}
+.conv-row-top{display:flex;align-items:center;gap:8px;}
+.conv-row-bottom{align-items:center;gap:8px;padding-left:34px;}
+.conv-name{flex:1;font-size:12.5px;}
+.segmented{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0;}
+.seg-btn{border:none;background:#fff;padding:6px 8px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;}
+.seg-btn.active{background:var(--navy);color:#fff;}
+.min-input{width:46px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;text-align:center;flex-shrink:0;}
+
+.switch{position:relative;display:inline-block;width:40px;height:23px;flex-shrink:0;margin-left:auto;}
+.switch input{opacity:0;width:0;height:0;}
+.switch .slider{position:absolute;cursor:pointer;inset:0;background:#D5D8DF;border-radius:24px;transition:.15s;}
+.switch .slider:before{position:absolute;content:"";height:17px;width:17px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.15s;}
+.switch input:checked + .slider{background:var(--navy);}
+.switch input:checked + .slider:before{transform:translateX(17px);}
+
+.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 18px;border-radius:30px;font-size:13px;z-index:200;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
+.toast.hidden{display:none;}
+canvas{max-width:100%;}
+.danger-zone{border:1px solid #F3C9C9;}
+
+@media (min-width:700px){
+  .bottom-nav{max-width:720px;left:50%;transform:translateX(-50%);border-radius:16px 16px 0 0;border-left:1px solid var(--border);border-right:1px solid var(--border);}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="crest">CDSP</div>
+    <div class="titles">
+      <h1>Cadete A</h1>
+      <span>C.D. San Pedro · 2026-2027</span>
+    </div>
+  </header>
+
+  <main id="content">
+
+    <!-- TAB MINUTOS -->
+    <section id="tab-minutos" class="tab-panel active">
+      <div class="section-header">
+        <h2>Minutos</h2>
+        <button class="btn-primary" onclick="abrirModalPartido()">+ Partido</button>
+      </div>
+
+      <div id="minutosEmpty" class="empty-state" style="display:none">
+        <p>Aún no hay partidos registrados.</p>
+        <button class="btn-primary" onclick="abrirModalPartido()">Añadir el primer partido</button>
+      </div>
+
+      <div id="partidosList"></div>
+
+      <div class="card" id="statsCard" style="display:none">
+        <h3>Estadísticas de la temporada</h3>
+        <div class="table-scroll">
+          <table id="statsTable">
+            <thead><tr>
+              <th data-sort="dorsal">#</th>
+              <th data-sort="nombre">Jugador</th>
+              <th data-sort="partidos">PJ</th>
+              <th data-sort="titular">Tit</th>
+              <th data-sort="suplente">Sup</th>
+              <th data-sort="noConvocado">NC</th>
+              <th data-sort="minutos" class="sort-active">Min ▼</th>
+              <th data-sort="media">Media</th>
+              <th data-sort="pct">%</th>
+            </tr></thead>
+            <tbody id="statsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" id="chartsCard" style="display:none">
+        <h3>Minutos por jugador</h3>
+        <canvas id="chartMinutos" height="230"></canvas>
+      </div>
+      <div class="card" id="chartsCard2" style="display:none">
+        <h3>Titular · Suplente · No convocado</h3>
+        <canvas id="chartEstados" height="230"></canvas>
+      </div>
+      <div class="card" id="chartsCard3" style="display:none">
+        <h3>Evolución por partido</h3>
+        <label style="margin-bottom:10px">Jugador
+          <select id="evolucionSelect" onchange="renderEvolucionChart()"></select>
+        </label>
+        <canvas id="chartEvolucion" height="230"></canvas>
+      </div>
+    </section>
+
+    <!-- TAB MULTAS -->
+    <section id="tab-multas" class="tab-panel">
+      <div class="section-header"><h2>Multas</h2></div>
+
+      <div id="multasAlert" class="alert-banner" style="display:none"></div>
+
+      <div class="card">
+        <h3>Nueva multa</h3>
+        <label>Jugador<select id="multaJugador"></select></label>
+        <label>Motivo<select id="multaMotivo" onchange="actualizarImporteSugerido()"></select></label>
+        <div class="form-grid">
+          <label>Importe (€)<input type="number" id="multaImporte" step="0.5" min="0"></label>
+          <label>Fecha<input type="date" id="multaFecha"></label>
+        </div>
+        <button class="btn-primary" onclick="registrarMulta()" style="width:100%">Añadir multa</button>
+      </div>
+
+      <div class="card">
+        <div class="totales-grid">
+          <div class="total-box"><span class="total-label">Recaudado</span><span class="total-value" id="totalCobrado">0,00 €</span></div>
+          <div class="total-box"><span class="total-label">Pendiente</span><span class="total-value" id="totalPendiente">0,00 €</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Por jugador</h3>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Jugador</th><th>Total</th><th>Pagado</th><th>Pendiente</th></tr></thead>
+            <tbody id="multasResumenBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Historial</h3>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Fecha</th><th>Jugador</th><th>Motivo</th><th>Importe</th><th>✓</th><th></th></tr></thead>
+            <tbody id="multasLogBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB JUGADORES -->
+    <section id="tab-jugadores" class="tab-panel">
+      <div class="section-header"><h2>Jugadores</h2><button class="btn-primary" onclick="abrirModalJugador()">+ Añadir</button></div>
+      <div id="jugadoresList" class="list-simple"></div>
+    </section>
+
+    <!-- TAB ENTRENADORES -->
+    <section id="tab-entrenadores" class="tab-panel">
+      <div class="section-header"><h2>Entrenadores</h2><button class="btn-primary" onclick="abrirModalEntrenador()">+ Añadir</button></div>
+      <div id="entrenadoresList" class="list-simple"></div>
+    </section>
+
+    <!-- TAB AJUSTES -->
+    <section id="tab-ajustes" class="tab-panel">
+      <div class="section-header"><h2>Ajustes</h2></div>
+
+      <div class="card">
+        <h3>Duración del partido</h3>
+        <p class="hint">Valor por defecto al crear un partido nuevo. Puedes cambiarlo también en cada partido concreto.</p>
+        <div class="inline-form">
+          <input type="number" id="configDuracion" min="1">
+          <span class="muted">minutos</span>
+          <button class="btn-primary" onclick="guardarConfig()">Guardar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Catálogo de motivos de multa</h3>
+        <div id="catalogoList" class="list-simple"></div>
+        <button class="btn-secondary" onclick="abrirModalMotivo()" style="width:100%">+ Añadir motivo</button>
+      </div>
+
+      <div class="card danger-zone">
+        <h3>Zona de datos</h3>
+        <p class="hint">Borra jugadores, entrenadores, partidos y multas. Útil solo para empezar de cero (por ejemplo, una temporada nueva). Los datos se guardan en este navegador/dispositivo, así que si cambias de móvil o de navegador no los verás automáticamente allí.</p>
+        <button class="btn-danger" onclick="confirmarBorrarTodo()">Borrar todos los datos</button>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="minutos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/><path d="M9 2h6"/></svg>
+      <span>Minutos</span>
+    </button>
+    <button class="nav-btn" data-tab="multas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 8.5a4 4 0 100 7"/><path d="M8 11h5M8 13h4"/></svg>
+      <span>Multas</span>
+    </button>
+    <button class="nav-btn" data-tab="jugadores">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4l4 2 4-2 4 3-2 3-2-1v11H8V9l-2 1-2-3z"/></svg>
+      <span>Jugadores</span>
+    </button>
+    <button class="nav-btn" data-tab="entrenadores">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="15" r="4"/><path d="M9 12h8a3 3 0 000-6h-2"/><path d="M15 6v3"/></svg>
+      <span>Cuerpo técnico</span>
+    </button>
+    <button class="nav-btn" data-tab="ajustes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+      <span>Ajustes</span>
+    </button>
+  </nav>
+</div>
+
+<div id="modalOverlay" class="modal-overlay hidden">
+  <div class="modal" id="modalContent"></div>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* ===================== CONSTANTES Y ESTADO ===================== */
+const STORAGE_PREFIX = 'cdsp_cadeteA_';
+const STORAGE_KEYS = { roster:'roster', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas' };
+
+const CATALOGO_DEFAULT = [
+  ['Retraso injustificado en entrenamiento',1.00],
+  ['Aviso fuera de plazo',0.50],
+  ['No asistencia a entrenamiento sin aviso',2.50],
+  ['No traer la equipación de entrenamiento',1.00],
+  ['Expulsión por no traer la equipación (equipación + no asistencia)',3.50],
+  ['Indisciplina en entrenamiento',1.00],
+  ['Uso del móvil durante la charla de entrenamiento',10.00],
+  ['Vestuario sucio (multa colectiva)',1.00],
+  ['No recoger el material (multa colectiva)',1.00],
+  ['Olvido de pertenencias en el vestuario',0.50],
+  ['Llegar tarde a un partido',2.00],
+  ['No asistir al partido sin aviso',3.00],
+  ['Llegar cambiado desde casa (falta de protocolo)',2.00],
+  ['Olvido de ropa o material de partido',1.00],
+  ['Olvido de ropa tras el partido',1.00],
+  ['No traer la ropa oficial de representación',1.00],
+  ['Indisciplina en charla técnica',3.00],
+  ['Uso del móvil en charla técnica',10.00],
+  ['Uso del móvil en el banquillo',3.00],
+  ['No ducharse o ducharse con calzoncillos',1.00],
+  ['Tarjeta amarilla por protestar o encararse',2.00],
+  ['Segunda amarilla por protestar o encararse',4.00],
+  ['Tarjeta roja directa por protestar o encararse',6.00],
+  ['Falta de respeto',5.00],
+  ['Uso general no autorizado del móvil',1.00]
+].map(([motivo,importe]) => ({id:uid(), motivo, importe}));
+
+const ROSTER_NOMBRES_DEFAULT = [
+  [1,'Marcelo'],[2,'Alvaro L / Polioli'],[3,'Samuel'],[4,'Pablo'],[5,'Blasco'],
+  [6,'Mario'],[7,'Vicario'],[8,'Pekas'],[9,'Jorge'],[10,'Wislam'],
+  [11,'Alvaro G'],[12,'Alvar'],[13,'Raul'],[14,'Marko'],[15,'Eloy'],
+  [16,'Arribas'],[17,'Davas'],[18,'Rubas'],[19,'Alex'],[20,'Jose Felix']
+];
+
+const CONFIG_DEFAULT = { duracionPartido:80 };
+
+let state = { jugadores:[], entrenadores:[], config:{...CONFIG_DEFAULT}, partidos:[], multas:[], catalogo:[] };
+let charts = { minutos:null, estados:null, evolucion:null };
+let currentSort = { key:'minutos', dir:'desc' };
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+/* ===================== ALMACENAMIENTO (localStorage: funciona en GitHub Pages) ===================== */
+async function loadKey(key, fallback){
+  try{
+    const raw = localStorage.getItem(STORAGE_PREFIX + key);
+    if(raw != null) return JSON.parse(raw);
+  }catch(e){}
+  return fallback;
+}
+async function saveKey(key, value){
+  try{
+    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+  }catch(e){
+    console.error('Error guardando', key, e);
+    showToast('No se pudo guardar el cambio en este dispositivo.');
+  }
+}
+
+/* Migra partidos guardados con el formato antiguo (un único "estado": titular/suplente/no_convocado)
+   al formato nuevo, que separa "convocado" (sí/no) de "condicion" (titular/suplente/pendiente). */
+function migrarConvocatoria(partidos){
+  (partidos||[]).forEach(p => {
+    if(!p.convocatoria) return;
+    Object.keys(p.convocatoria).forEach(jid => {
+      const e = p.convocatoria[jid];
+      if(e && e.estado !== undefined && e.convocado === undefined){
+        const conv = e.estado === 'titular' || e.estado === 'suplente';
+        p.convocatoria[jid] = { convocado: conv, condicion: conv ? e.estado : null, minutos: e.minutos || 0 };
+      }
+    });
+  });
+  return partidos;
+}
+
+async function init(){
+  const [roster, config, partidos, multas, catalogo] = await Promise.all([
+    loadKey(STORAGE_KEYS.roster, null),
+    loadKey(STORAGE_KEYS.config, null),
+    loadKey(STORAGE_KEYS.partidos, []),
+    loadKey(STORAGE_KEYS.multas, []),
+    loadKey(STORAGE_KEYS.catalogo, null)
+  ]);
+
+  if(roster){
+    state.jugadores = roster.jugadores || [];
+    state.entrenadores = roster.entrenadores || [];
+  } else {
+    state.jugadores = ROSTER_NOMBRES_DEFAULT.map(([dorsal,nombre]) => ({id:uid(), dorsal, nombre}));
+    state.entrenadores = [];
+    await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
+  }
+
+  state.config = config || {...CONFIG_DEFAULT};
+  if(!config) await saveKey(STORAGE_KEYS.config, state.config);
+
+  state.partidos = migrarConvocatoria(partidos || []);
+  state.multas = multas || [];
+
+  if(catalogo){
+    state.catalogo = catalogo;
+  } else {
+    state.catalogo = CATALOGO_DEFAULT;
+    await saveKey(STORAGE_KEYS.catalogo, state.catalogo);
+  }
+
+  renderAll();
+}
+
+function renderAll(){
+  renderMinutosTab();
+  renderMultasTab();
+  renderJugadoresTab();
+  renderEntrenadoresTab();
+  renderAjustesTab();
+}
+
+/* ===================== UTILIDADES ===================== */
+function escapeHtml(str){
+  if(str == null) return '';
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function formatName(name){
+  if(!name) return '';
+  return name.trim().toLowerCase().replace(/(^|\s|\/)\p{L}/gu, c => c.toUpperCase());
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function formatDateShort(iso){ if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}`; }
+function formatDateLong(iso){ if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
+function money(n){ return n.toFixed(2).replace('.',',') + ' €'; }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => t.classList.add('hidden'), 2600);
+}
+function openModal(html){
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.add('hidden');
+  document.getElementById('modalContent').innerHTML = '';
+}
+function switchTab(tab){
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  window.scrollTo(0,0);
+}
+
+/* ===================== JUGADORES ===================== */
+function renderJugadoresTab(){
+  const list = document.getElementById('jugadoresList');
+  if(state.jugadores.length === 0){
+    list.innerHTML = '<div class="empty-state"><p>Todavía no hay jugadores.</p></div>';
+    return;
+  }
+  const sorted = [...state.jugadores].sort((a,b) => a.dorsal - b.dorsal);
+  list.innerHTML = sorted.map(j => `
+    <div class="list-row">
+      <span class="dorsal-badge">${j.dorsal}</span>
+      <span class="list-name">${escapeHtml(formatName(j.nombre))}</span>
+      <div class="row-actions">
+        <button class="icon-btn" onclick="abrirModalJugador('${j.id}')">✎</button>
+        <button class="icon-btn danger" onclick="borrarJugador('${j.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function abrirModalJugador(id){
+  const jugador = id ? state.jugadores.find(j => j.id === id) : null;
+  openModal(`
+    <h3>${jugador ? 'Editar jugador' : 'Añadir jugador'}</h3>
+    <label>Dorsal<input type="number" id="mJugDorsal" value="${jugador ? jugador.dorsal : ''}" min="1"></label>
+    <label>Nombre<input type="text" id="mJugNombre" value="${jugador ? escapeHtml(jugador.nombre) : ''}"></label>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarJugador('${id||''}')">Guardar</button>
+    </div>`);
+}
+async function guardarJugador(id){
+  const dorsal = parseInt(document.getElementById('mJugDorsal').value, 10);
+  const nombre = document.getElementById('mJugNombre').value.trim();
+  if(!nombre || !dorsal){ showToast('Rellena dorsal y nombre.'); return; }
+  if(id){
+    const j = state.jugadores.find(x => x.id === id);
+    j.dorsal = dorsal; j.nombre = nombre;
+  } else {
+    state.jugadores.push({id:uid(), dorsal, nombre});
+  }
+  await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
+  closeModal();
+  renderJugadoresTab(); renderMinutosTab(); renderMultasTab();
+  showToast('Jugador guardado.');
+}
+async function borrarJugador(id){
+  if(!confirm('¿Seguro que quieres borrar este jugador? También se perderán sus datos de minutos y multas asociados.')) return;
+  state.jugadores = state.jugadores.filter(j => j.id !== id);
+  state.partidos.forEach(p => { if(p.convocatoria) delete p.convocatoria[id]; });
+  state.multas = state.multas.filter(m => m.jugadorId !== id);
+  await Promise.all([
+    saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores}),
+    saveKey(STORAGE_KEYS.partidos, state.partidos),
+    saveKey(STORAGE_KEYS.multas, state.multas)
+  ]);
+  renderAll();
+  showToast('Jugador eliminado.');
+}
+
+/* ===================== ENTRENADORES ===================== */
+function renderEntrenadoresTab(){
+  const list = document.getElementById('entrenadoresList');
+  if(state.entrenadores.length === 0){
+    list.innerHTML = '<div class="empty-state"><p>Todavía no hay entrenadores añadidos.</p></div>';
+    return;
+  }
+  list.innerHTML = state.entrenadores.map(e => `
+    <div class="list-row">
+      <span class="list-name"><strong>${escapeHtml(e.nombre)}</strong><br><span class="muted small">${escapeHtml(e.rol||'')}</span></span>
+      <div class="row-actions">
+        <button class="icon-btn" onclick="abrirModalEntrenador('${e.id}')">✎</button>
+        <button class="icon-btn danger" onclick="borrarEntrenador('${e.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function abrirModalEntrenador(id){
+  const ent = id ? state.entrenadores.find(e => e.id === id) : null;
+  const roles = ['Entrenador principal','Segundo entrenador','Delegado','Preparador físico','Otro'];
+  openModal(`
+    <h3>${ent ? 'Editar entrenador' : 'Añadir entrenador'}</h3>
+    <label>Nombre<input type="text" id="mEntNombre" value="${ent ? escapeHtml(ent.nombre) : ''}"></label>
+    <label>Rol<select id="mEntRol">${roles.map(r => `<option ${ent && ent.rol===r?'selected':''}>${r}</option>`).join('')}</select></label>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarEntrenador('${id||''}')">Guardar</button>
+    </div>`);
+}
+async function guardarEntrenador(id){
+  const nombre = document.getElementById('mEntNombre').value.trim();
+  const rol = document.getElementById('mEntRol').value;
+  if(!nombre){ showToast('Escribe un nombre.'); return; }
+  if(id){
+    const e = state.entrenadores.find(x => x.id === id);
+    e.nombre = nombre; e.rol = rol;
+  } else {
+    state.entrenadores.push({id:uid(), nombre, rol});
+  }
+  await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
+  closeModal(); renderEntrenadoresTab();
+  showToast('Entrenador guardado.');
+}
+async function borrarEntrenador(id){
+  if(!confirm('¿Borrar este entrenador?')) return;
+  state.entrenadores = state.entrenadores.filter(e => e.id !== id);
+  await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
+  renderEntrenadoresTab();
+  showToast('Entrenador eliminado.');
+}
+
+/* ===================== MINUTOS / PARTIDOS ===================== */
+function renderMinutosTab(){
+  const listEl = document.getElementById('partidosList');
+  const emptyEl = document.getElementById('minutosEmpty');
+  const statsCard = document.getElementById('statsCard');
+  const c1 = document.getElementById('chartsCard'), c2 = document.getElementById('chartsCard2'), c3 = document.getElementById('chartsCard3');
+
+  if(state.partidos.length === 0){
+    listEl.innerHTML = '';
+    emptyEl.style.display = 'block';
+    statsCard.style.display = 'none'; c1.style.display='none'; c2.style.display='none'; c3.style.display='none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  statsCard.style.display = 'block'; c1.style.display='block'; c2.style.display='block'; c3.style.display='block';
+
+  const sorted = [...state.partidos].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  listEl.innerHTML = sorted.map(p => {
+    const nConv = Object.values(p.convocatoria||{}).filter(e => e.convocado).length;
+    return `
+    <div class="card partido-card">
+      <div class="partido-info">
+        <strong>${escapeHtml(p.rival || 'Rival por definir')}</strong>
+        <span class="muted">${formatDateShort(p.fecha)} · ${p.duracion} min · ${nConv} convocados</span>
+      </div>
+      <div class="row-actions">
+        <button class="btn-small" onclick="abrirModalConvocatoria('${p.id}')">Convocatoria</button>
+        <button class="icon-btn" onclick="generarConvocatoriaPDF('${p.id}')">PDF</button>
+        <button class="icon-btn danger" onclick="borrarPartido('${p.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  renderStatsTable();
+  renderCharts();
+}
+
+function abrirModalPartido(){
+  openModal(`
+    <h3>Nuevo partido</h3>
+    <label>Rival<input type="text" id="mPartRival" placeholder="Nombre del equipo rival"></label>
+    <div class="form-grid">
+      <label>Fecha<input type="date" id="mPartFecha" value="${todayISO()}"></label>
+      <label>Hora citación<input type="time" id="mPartHora"></label>
+    </div>
+    <label>Duración (minutos)<input type="number" id="mPartDuracion" value="${state.config.duracionPartido}"></label>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarPartido()">Crear partido</button>
+    </div>`);
+}
+async function guardarPartido(){
+  const rival = document.getElementById('mPartRival').value.trim();
+  const fecha = document.getElementById('mPartFecha').value;
+  const hora = document.getElementById('mPartHora').value;
+  const duracion = parseInt(document.getElementById('mPartDuracion').value,10) || state.config.duracionPartido;
+  if(!fecha){ showToast('Indica la fecha del partido.'); return; }
+  const nuevo = {id:uid(), rival, fecha, hora, duracion, convocatoria:{}};
+  state.jugadores.forEach(j => { nuevo.convocatoria[j.id] = {convocado:false, condicion:null, minutos:0}; });
+  state.partidos.push(nuevo);
+  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  closeModal();
+  renderMinutosTab();
+  abrirModalConvocatoria(nuevo.id);
+}
+async function borrarPartido(id){
+  if(!confirm('¿Borrar este partido y todos sus datos de convocatoria/minutos?')) return;
+  state.partidos = state.partidos.filter(p => p.id !== id);
+  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  renderMinutosTab();
+  showToast('Partido eliminado.');
+}
+
+/* ---- Convocatoria: "convocado" (sí/no) y "condición" (titular/suplente/pendiente) son decisiones independientes ---- */
+function abrirModalConvocatoria(partidoId){
+  const partido = state.partidos.find(p => p.id === partidoId);
+  const jugadoresOrdenados = [...state.jugadores].sort((a,b) => a.dorsal - b.dorsal);
+  const rows = jugadoresOrdenados.map(j => {
+    const e = partido.convocatoria[j.id] || {convocado:false, condicion:null, minutos:0};
+    return `
+    <div class="convocatoria-row" data-jid="${j.id}">
+      <div class="conv-row-top">
+        <span class="dorsal-badge small">${j.dorsal}</span>
+        <span class="conv-name">${escapeHtml(formatName(j.nombre))}</span>
+        <label class="switch">
+          <input type="checkbox" class="conv-toggle" ${e.convocado?'checked':''}>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="conv-row-bottom" style="display:${e.convocado?'flex':'none'}">
+        <div class="segmented seg-cond">
+          <button type="button" class="seg-btn ${e.condicion==='titular'?'active':''}" data-val="titular">Titular</button>
+          <button type="button" class="seg-btn ${e.condicion==='suplente'?'active':''}" data-val="suplente">Suplente</button>
+          <button type="button" class="seg-btn ${!e.condicion?'active':''}" data-val="">Sin decidir</button>
+        </div>
+        <input type="number" class="min-input" value="${e.minutos||0}" min="0" max="${partido.duracion}">
+      </div>
+    </div>`;
+  }).join('');
+
+  openModal(`
+    <h3>${escapeHtml(partido.rival||'Partido')} · ${formatDateShort(partido.fecha)}</h3>
+    <p class="hint">Primero decide quién está <strong>convocado</strong> (esto es lo que sale en el PDF). Lo de titular/suplente y los minutos lo puedes rellenar más adelante, cuando lo decidas o cuando termine el partido — no hace falta hacerlo todo ahora.</p>
+    <div class="conv-toolbar">
+      <button type="button" class="btn-ghost" onclick="marcarTodosConvocatoria(true)">Marcar todos convocados</button>
+      <button type="button" class="btn-ghost" onclick="marcarTodosConvocatoria(false)">Marcar todos NO convocados</button>
+    </div>
+    <div class="convocatoria-list">${rows}</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+      <button class="btn-primary" onclick="guardarConvocatoria('${partidoId}')">Guardar</button>
+    </div>`);
+
+  document.querySelectorAll('.conv-toggle').forEach(chk => {
+    chk.addEventListener('change', () => toggleConvocadoRow(chk));
+  });
+  document.querySelectorAll('.seg-cond .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.convocatoria-row');
+      row.querySelectorAll('.seg-cond .seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+}
+function toggleConvocadoRow(chk){
+  const row = chk.closest('.convocatoria-row');
+  const bottom = row.querySelector('.conv-row-bottom');
+  bottom.style.display = chk.checked ? 'flex' : 'none';
+  if(!chk.checked){
+    row.querySelectorAll('.seg-cond .seg-btn').forEach(b => b.classList.remove('active'));
+    row.querySelector('.seg-cond .seg-btn[data-val=""]').classList.add('active');
+    row.querySelector('.min-input').value = 0;
+  }
+}
+function marcarTodosConvocatoria(convocado){
+  document.querySelectorAll('.conv-toggle').forEach(chk => {
+    chk.checked = convocado;
+    toggleConvocadoRow(chk);
+  });
+}
+async function guardarConvocatoria(partidoId){
+  const partido = state.partidos.find(p => p.id === partidoId);
+  document.querySelectorAll('.convocatoria-row').forEach(row => {
+    const jid = row.dataset.jid;
+    const convocado = row.querySelector('.conv-toggle').checked;
+    let condicion = null;
+    if(convocado){
+      const condActive = row.querySelector('.seg-cond .seg-btn.active');
+      condicion = (condActive && condActive.dataset.val) ? condActive.dataset.val : null;
+    }
+    const minutos = convocado ? (parseInt(row.querySelector('.min-input').value,10) || 0) : 0;
+    partido.convocatoria[jid] = {convocado, condicion, minutos};
+  });
+  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  closeModal();
+  renderMinutosTab();
+  showToast('Convocatoria guardada.');
+}
+
+/* ---- Estadísticas ---- */
+function computeStats(){
+  return state.jugadores.map(j => {
+    let minutos=0, titular=0, suplente=0, noConvocado=0;
+    state.partidos.forEach(p => {
+      const e = (p.convocatoria||{})[j.id];
+      if(!e || !e.convocado){ noConvocado++; return; }
+      if(e.condicion === 'titular') titular++;
+      else if(e.condicion === 'suplente') suplente++;
+      minutos += Number(e.minutos)||0;
+    });
+    const partidosConvocado = state.partidos.filter(p => (p.convocatoria||{})[j.id]?.convocado).length;
+    const media = partidosConvocado ? minutos/partidosConvocado : 0;
+    return {jugador:j, minutos, titular, suplente, noConvocado, partidosConvocado, media};
+  });
+}
+function renderStatsTable(){
+  const stats = computeStats();
+  const totalMinutosPosibles = state.partidos.reduce((s,p) => s + (Number(p.duracion)||0),0) || 1;
+  const key = currentSort.key, dir = currentSort.dir;
+  const rows = stats.map(s => ({...s, pct:(s.minutos/totalMinutosPosibles)*100})).sort((a,b) => {
+    let va, vb;
+    switch(key){
+      case 'dorsal': va=a.jugador.dorsal; vb=b.jugador.dorsal; break;
+      case 'nombre': va=a.jugador.nombre.toLowerCase(); vb=b.jugador.nombre.toLowerCase(); break;
+      case 'partidos': va=a.partidosConvocado; vb=b.partidosConvocado; break;
+      case 'titular': va=a.titular; vb=b.titular; break;
+      case 'suplente': va=a.suplente; vb=b.suplente; break;
+      case 'noConvocado': va=a.noConvocado; vb=b.noConvocado; break;
+      case 'media': va=a.media; vb=b.media; break;
+      case 'pct': va=a.pct; vb=b.pct; break;
+      default: va=a.minutos; vb=b.minutos;
+    }
+    if(va < vb) return dir==='asc' ? -1 : 1;
+    if(va > vb) return dir==='asc' ? 1 : -1;
+    return 0;
+  });
+  document.getElementById('statsTableBody').innerHTML = rows.map(r => `
+    <tr>
+      <td><span class="dorsal-badge small">${r.jugador.dorsal}</span></td>
+      <td>${escapeHtml(formatName(r.jugador.nombre))}</td>
+      <td>${r.partidosConvocado}</td>
+      <td>${r.titular}</td>
+      <td>${r.suplente}</td>
+      <td>${r.noConvocado}</td>
+      <td><strong>${r.minutos}</strong></td>
+      <td>${r.media.toFixed(0)}</td>
+      <td>${r.pct.toFixed(0)}%</td>
+    </tr>`).join('');
+}
+
+/* ---- Gráficas ---- */
+function renderCharts(){
+  const stats = computeStats().sort((a,b) => b.minutos - a.minutos);
+  const labels = stats.map(s => formatName(s.jugador.nombre));
+
+  if(charts.minutos) charts.minutos.destroy();
+  charts.minutos = new Chart(document.getElementById('chartMinutos'), {
+    type:'bar',
+    data:{labels, datasets:[{label:'Minutos totales', data:stats.map(s=>s.minutos), backgroundColor:'#0F1E3D', borderRadius:4}]},
+    options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{autoSkip:false, maxRotation:60, minRotation:45, font:{size:10}}}}}
+  });
+
+  if(charts.estados) charts.estados.destroy();
+  charts.estados = new Chart(document.getElementById('chartEstados'), {
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'Titular', data:stats.map(s=>s.titular), backgroundColor:'#0F1E3D'},
+      {label:'Suplente', data:stats.map(s=>s.suplente), backgroundColor:'#D22630'},
+      {label:'No convocado', data:stats.map(s=>s.noConvocado), backgroundColor:'#C9CDD6'}
+    ]},
+    options:{responsive:true, scales:{x:{stacked:true, ticks:{font:{size:10}}}, y:{stacked:true}}}
+  });
+
+  const sel = document.getElementById('evolucionSelect');
+  const prevVal = sel.value;
+  sel.innerHTML = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal).map(j => `<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('');
+  if(prevVal && state.jugadores.find(j=>j.id===prevVal)) sel.value = prevVal;
+  renderEvolucionChart();
+}
+function renderEvolucionChart(){
+  const sel = document.getElementById('evolucionSelect');
+  const jugadorId = sel.value;
+  const partidosOrdenados = [...state.partidos].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+  const labels = partidosOrdenados.map(p => `${formatDateShort(p.fecha)} ${p.rival?('vs '+p.rival):''}`);
+  const data = partidosOrdenados.map(p => { const e=(p.convocatoria||{})[jugadorId]; return e?(Number(e.minutos)||0):0; });
+  if(charts.evolucion) charts.evolucion.destroy();
+  charts.evolucion = new Chart(document.getElementById('chartEvolucion'), {
+    type:'line',
+    data:{labels, datasets:[{label:'Minutos', data, borderColor:'#D22630', backgroundColor:'rgba(210,38,48,0.15)', fill:true, tension:0.25, pointRadius:3}]},
+    options:{responsive:true, plugins:{legend:{display:false}}, scales:{x:{ticks:{font:{size:9}}}}}
+  });
+}
+
+/* ---- PDF de convocatoria (solo depende de "convocado", no de titular/suplente) ---- */
+function generarConvocatoriaPDF(partidoId){
+  const partido = state.partidos.find(p => p.id === partidoId);
+  if(!window.jspdf){ showToast('No se pudo cargar el generador de PDF. Revisa tu conexión e inténtalo de nuevo.'); return; }
+  try{
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF();
+    const convocados = state.jugadores.filter(j => {
+      const e = (partido.convocatoria||{})[j.id];
+      return e && e.convocado;
+    }).sort((a,b) => a.dorsal - b.dorsal);
+
+    doc.setFillColor(15,30,61);
+    doc.rect(0,0,210,32,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(18);
+    doc.text('C.D. SAN PEDRO', 105, 15, {align:'center'});
+    doc.setFontSize(11);
+    doc.text('CADETE A · CONVOCATORIA', 105, 23, {align:'center'});
+
+    doc.setTextColor(20,20,20);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    let infoY = 42;
+    doc.text(`Rival: ${partido.rival || 'Por definir'}`, 14, infoY); infoY += 7;
+    doc.text(`Fecha: ${formatDateLong(partido.fecha)}`, 14, infoY); infoY += 7;
+    if(partido.hora){ doc.text(`Hora de citación: ${partido.hora}`, 14, infoY); infoY += 7; }
+
+    let y = infoY + 8;
+    doc.setFillColor(210,38,48);
+    doc.rect(14, y-6, 182, 8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.text('DORSAL', 20, y);
+    doc.text('JUGADOR', 45, y);
+    y += 10;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+
+    if(convocados.length === 0){
+      doc.setTextColor(120,120,120);
+      doc.text('Todavía no se ha marcado ningún convocado para este partido.', 20, y);
+    } else {
+      convocados.forEach((j,i) => {
+        if(i % 2 === 0){ doc.setFillColor(245,246,248); doc.rect(14, y-5.5, 182, 8, 'F'); }
+        doc.setTextColor(20,20,20);
+        doc.text(String(j.dorsal), 20, y);
+        doc.text(formatName(j.nombre), 45, y);
+        y += 8;
+        if(y > 280){ doc.addPage(); y = 20; }
+      });
+    }
+
+    doc.save(`Convocatoria_${(partido.rival||'partido').replace(/\s+/g,'_')}_${partido.fecha}.pdf`);
+    showToast('PDF descargado.');
+  }catch(err){
+    console.error(err);
+    showToast('No se pudo generar el PDF. Inténtalo de nuevo.');
+  }
+}
+
+/* ===================== MULTAS ===================== */
+function renderMultasTab(){
+  const selJ = document.getElementById('multaJugador');
+  const prevJ = selJ.value;
+  selJ.innerHTML = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal).map(j => `<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('');
+  if(prevJ && state.jugadores.find(j=>j.id===prevJ)) selJ.value = prevJ;
+
+  const selM = document.getElementById('multaMotivo');
+  const prevM = selM.value;
+  selM.innerHTML = state.catalogo.map(c => `<option value="${c.id}">${escapeHtml(c.motivo)} (${c.importe.toFixed(2)}€)</option>`).join('') + '<option value="custom">Otro (importe personalizado)</option>';
+  if(prevM){ selM.value = prevM; }
+
+  if(!document.getElementById('multaFecha').value) document.getElementById('multaFecha').value = todayISO();
+  actualizarImporteSugerido();
+
+  renderMultasLog();
+  renderMultasResumen();
+  renderMultasAlert();
+}
+function actualizarImporteSugerido(){
+  const selM = document.getElementById('multaMotivo');
+  const cat = state.catalogo.find(c => c.id === selM.value);
+  if(cat) document.getElementById('multaImporte').value = cat.importe.toFixed(2);
+}
+function calcularRecargo(fechaISO, refDate){
+  const fecha = new Date(fechaISO + 'T00:00:00');
+  const ref = refDate || new Date();
+  const dias = Math.floor((ref - fecha) / 86400000);
+  const gracia = 14;
+  if(dias <= gracia) return 0;
+  const semanas = Math.ceil((dias - gracia) / 7);
+  return semanas * 0.5;
+}
+function importeActual(multa){
+  if(multa.pagada) return multa.importeFinal != null ? multa.importeFinal : multa.importeBase;
+  return multa.importeBase + calcularRecargo(multa.fecha);
+}
+async function registrarMulta(){
+  const jugadorId = document.getElementById('multaJugador').value;
+  const motivoSel = document.getElementById('multaMotivo').value;
+  const importe = parseFloat(document.getElementById('multaImporte').value);
+  const fecha = document.getElementById('multaFecha').value;
+  if(!jugadorId || isNaN(importe) || !fecha){ showToast('Completa jugador, importe y fecha.'); return; }
+  let motivoTexto;
+  if(motivoSel === 'custom'){
+    motivoTexto = (prompt('Describe el motivo:') || '').trim() || 'Otro';
+  } else {
+    const cat = state.catalogo.find(c => c.id === motivoSel);
+    motivoTexto = cat ? cat.motivo : 'Otro';
+  }
+  state.multas.push({id:uid(), jugadorId, motivo:motivoTexto, importeBase:importe, fecha, pagada:false, fechaPago:null, importeFinal:null});
+  await saveKey(STORAGE_KEYS.multas, state.multas);
+  renderMultasTab();
+  showToast('Multa registrada.');
+}
+async function marcarPagada(id, pagada){
+  const m = state.multas.find(x => x.id === id);
+  m.pagada = pagada;
+  m.fechaPago = pagada ? todayISO() : null;
+  m.importeFinal = pagada ? importeActual({...m, pagada:false}) : null;
+  await saveKey(STORAGE_KEYS.multas, state.multas);
+  renderMultasTab();
+}
+async function borrarMulta(id){
+  if(!confirm('¿Borrar esta multa?')) return;
+  state.multas = state.multas.filter(m => m.id !== id);
+  await saveKey(STORAGE_KEYS.multas, state.multas);
+  renderMultasTab();
+  showToast('Multa eliminada.');
+}
+function renderMultasLog(){
+  const sorted = [...state.multas].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  document.getElementById('multasLogBody').innerHTML = sorted.map(m => {
+    const jugador = state.jugadores.find(j => j.id === m.jugadorId);
+    const recargo = !m.pagada ? calcularRecargo(m.fecha) : 0;
+    const total = importeActual(m);
+    return `
+    <tr class="${recargo>0 ? 'row-overdue':''}">
+      <td>${formatDateShort(m.fecha)}</td>
+      <td>${jugador ? escapeHtml(formatName(jugador.nombre)) : '—'}</td>
+      <td>${escapeHtml(m.motivo)}</td>
+      <td>${money(total)}${recargo>0?`<br><span class="muted small">+${money(recargo)} recargo</span>`:''}</td>
+      <td><input type="checkbox" ${m.pagada?'checked':''} onchange="marcarPagada('${m.id}', this.checked)"></td>
+      <td><button class="icon-btn danger" onclick="borrarMulta('${m.id}')">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+function renderMultasResumen(){
+  const rows = state.jugadores.map(j => {
+    const propias = state.multas.filter(m => m.jugadorId === j.id);
+    const total = propias.reduce((s,m) => s + importeActual(m), 0);
+    const pagado = propias.filter(m=>m.pagada).reduce((s,m)=> s + (m.importeFinal!=null?m.importeFinal:m.importeBase), 0);
+    const pendiente = total - pagado;
+    return {j, total, pagado, pendiente};
+  }).sort((a,b) => b.pendiente - a.pendiente);
+
+  document.getElementById('multasResumenBody').innerHTML = rows.map(r => `
+    <tr class="${r.pendiente>0?'row-debt':''}">
+      <td>${r.j.dorsal} · ${escapeHtml(formatName(r.j.nombre))}</td>
+      <td>${money(r.total)}</td>
+      <td>${money(r.pagado)}</td>
+      <td><strong>${money(r.pendiente)}</strong></td>
+    </tr>`).join('');
+
+  const totalCobrado = state.multas.filter(m=>m.pagada).reduce((s,m)=> s + (m.importeFinal!=null?m.importeFinal:m.importeBase),0);
+  const totalPendiente = state.multas.filter(m=>!m.pagada).reduce((s,m)=> s + importeActual(m), 0);
+  document.getElementById('totalCobrado').textContent = money(totalCobrado);
+  document.getElementById('totalPendiente').textContent = money(totalPendiente);
+}
+function renderMultasAlert(){
+  const vencidas = state.multas.filter(m => !m.pagada && calcularRecargo(m.fecha) > 0);
+  const banner = document.getElementById('multasAlert');
+  if(vencidas.length === 0){ banner.style.display = 'none'; return; }
+  const recargoTotal = vencidas.reduce((s,m) => s + calcularRecargo(m.fecha), 0);
+  banner.style.display = 'flex';
+  banner.innerHTML = `⚠️ ${vencidas.length} multa(s) con más de 2 semanas sin pagar — recargo acumulado: ${money(recargoTotal)}`;
+}
+
+/* ===================== AJUSTES ===================== */
+function renderAjustesTab(){
+  document.getElementById('configDuracion').value = state.config.duracionPartido;
+  renderCatalogoList();
+}
+async function guardarConfig(){
+  const val = parseInt(document.getElementById('configDuracion').value, 10);
+  if(!val || val <= 0){ showToast('Introduce una duración válida.'); return; }
+  state.config.duracionPartido = val;
+  await saveKey(STORAGE_KEYS.config, state.config);
+  showToast('Duración por defecto actualizada.');
+}
+function renderCatalogoList(){
+  document.getElementById('catalogoList').innerHTML = state.catalogo.map(c => `
+    <div class="list-row">
+      <span class="list-name">${escapeHtml(c.motivo)}<br><span class="muted small">${c.importe.toFixed(2)}€</span></span>
+      <div class="row-actions">
+        <button class="icon-btn" onclick="abrirModalMotivo('${c.id}')">✎</button>
+        <button class="icon-btn danger" onclick="borrarMotivo('${c.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function abrirModalMotivo(id){
+  const cat = id ? state.catalogo.find(c => c.id === id) : null;
+  openModal(`
+    <h3>${cat ? 'Editar motivo' : 'Nuevo motivo'}</h3>
+    <label>Motivo<input type="text" id="mMotTexto" value="${cat ? escapeHtml(cat.motivo) : ''}"></label>
+    <label>Importe (€)<input type="number" id="mMotImporte" step="0.5" value="${cat ? cat.importe : ''}"></label>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarMotivo('${id||''}')">Guardar</button>
+    </div>`);
+}
+async function guardarMotivo(id){
+  const motivo = document.getElementById('mMotTexto').value.trim();
+  const importe = parseFloat(document.getElementById('mMotImporte').value);
+  if(!motivo || isNaN(importe)){ showToast('Completa motivo e importe.'); return; }
+  if(id){
+    const c = state.catalogo.find(x => x.id === id);
+    c.motivo = motivo; c.importe = importe;
+  } else {
+    state.catalogo.push({id:uid(), motivo, importe});
+  }
+  await saveKey(STORAGE_KEYS.catalogo, state.catalogo);
+  closeModal(); renderCatalogoList(); renderMultasTab();
+  showToast('Catálogo actualizado.');
+}
+async function borrarMotivo(id){
+  if(!confirm('¿Borrar este motivo del catálogo?')) return;
+  state.catalogo = state.catalogo.filter(c => c.id !== id);
+  await saveKey(STORAGE_KEYS.catalogo, state.catalogo);
+  renderCatalogoList(); renderMultasTab();
+}
+async function confirmarBorrarTodo(){
+  if(!confirm('Esto borrará TODOS los datos: jugadores, entrenadores, partidos y multas. ¿Seguro?')) return;
+  if(!confirm('De verdad, ¿seguro? Esta acción no se puede deshacer.')) return;
+  state.jugadores = []; state.entrenadores = []; state.partidos = []; state.multas = [];
+  state.catalogo = CATALOGO_DEFAULT.map(c => ({...c}));
+  state.config = {...CONFIG_DEFAULT};
+  await Promise.all([
+    saveKey(STORAGE_KEYS.roster, {jugadores:[], entrenadores:[]}),
+    saveKey(STORAGE_KEYS.partidos, []),
+    saveKey(STORAGE_KEYS.multas, []),
+    saveKey(STORAGE_KEYS.catalogo, state.catalogo),
+    saveKey(STORAGE_KEYS.config, state.config)
+  ]);
+  renderAll();
+  showToast('Datos borrados.');
+}
+
+/* ===================== INIT ===================== */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  document.querySelectorAll('#statsTable th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if(currentSort.key === key) currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+      else { currentSort.key = key; currentSort.dir = 'desc'; }
+      document.querySelectorAll('#statsTable th').forEach(h => h.classList.remove('sort-active'));
+      th.classList.add('sort-active');
+      renderStatsTable();
+    });
+  });
+  document.getElementById('modalOverlay').addEventListener('click', (e) => { if(e.target.id === 'modalOverlay') closeModal(); });
+  init();
+});
+</script>
+</body>
+</html>
