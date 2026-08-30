@@ -30,14 +30,14 @@ h1,h2,h3{font-family:'Oswald',sans-serif;letter-spacing:.02em;margin:0;}
 button,input,select{font-family:'Inter',sans-serif;}
 #app{display:flex;flex-direction:column;min-height:100vh;}
 
-.topbar{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;padding:16px 18px calc(16px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;}
-.crest{width:40px;height:40px;border-radius:11px;flex-shrink:0;overflow:hidden;box-shadow:0 0 0 1.5px rgba(255,255,255,.35);}
-.crest img{width:100%;height:100%;object-fit:cover;display:block;}
-
 .splash{position:fixed;inset:0;z-index:1000;background:radial-gradient(circle at 50% 40%,var(--navy-2),var(--navy) 70%);display:flex;align-items:center;justify-content:center;transition:opacity .5s ease, visibility .5s ease;}
 .splash img{width:44vw;max-width:220px;border-radius:18%;box-shadow:0 10px 40px rgba(0,0,0,.4);animation:splashPop .6s cubic-bezier(.2,.9,.3,1.2);}
 .splash.hide{opacity:0;visibility:hidden;pointer-events:none;}
 @keyframes splashPop{from{transform:scale(.75);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+.topbar{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;padding:16px 18px calc(16px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;}
+.crest{width:40px;height:40px;border-radius:11px;flex-shrink:0;overflow:hidden;box-shadow:0 0 0 1.5px rgba(255,255,255,.35);}
+.crest img{width:100%;height:100%;object-fit:cover;display:block;}
 .titles h1{font-size:19px;text-transform:uppercase;}
 .titles span{font-size:11px;opacity:.75;}
 
@@ -63,7 +63,8 @@ main#content{flex:1;padding:16px 16px calc(92px + env(safe-area-inset-bottom,0px
 .btn-secondary{background:#EEF0F4;color:var(--text);padding:10px 16px;font-size:14px;}
 .btn-danger{background:#FBEAEA;color:var(--red-dark);padding:10px 16px;font-size:14px;width:100%;}
 .btn-small{background:var(--navy);color:#fff;padding:7px 11px;font-size:12px;}
-.btn-ghost{background:none;border:1px solid var(--border);color:var(--navy);padding:7px 11px;font-size:11.5px;border-radius:9px;font-weight:600;cursor:pointer;}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--navy);padding:7px 14px;font-size:12px;border-radius:9px;font-weight:600;cursor:pointer;}
+.btn-ghost.active-ghost{background:var(--navy);color:#fff;border-color:var(--navy);}
 .icon-btn{background:none;border:none;font-size:15px;padding:6px 7px;cursor:pointer;color:var(--muted);border-radius:8px;}
 .icon-btn.danger{color:var(--red);}
 
@@ -96,7 +97,6 @@ td{padding:9px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
 .total-value{font-family:'Oswald',sans-serif;font-size:23px;font-weight:600;color:var(--navy);}
 
 .alert-banner{background:#FFF4E5;border:1px solid #F3C57A;color:#8A5A00;padding:12px 14px;border-radius:12px;margin-bottom:14px;font-size:13px;display:flex;align-items:center;gap:8px;}
-.info-banner{background:#EAF1FF;border:1px solid #B9D3F7;color:#1B4B91;padding:12px 14px;border-radius:12px;margin-bottom:14px;font-size:12.5px;line-height:1.4;}
 
 .row-overdue{background:rgba(210,38,48,.045);}
 .row-debt{background:rgba(210,38,48,.045);}
@@ -124,6 +124,7 @@ td{padding:9px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
 .seg-btn{border:none;background:#fff;padding:6px 8px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;}
 .seg-btn.active{background:var(--navy);color:#fff;}
 .min-input{width:46px;padding:6px 4px;border:1px solid var(--border);border-radius:8px;text-align:center;flex-shrink:0;}
+.test-result-input{width:80px;padding:6px;border:1px solid var(--border);border-radius:8px;text-align:center;margin-left:auto;flex-shrink:0;}
 
 .switch{position:relative;display:inline-block;width:40px;height:23px;flex-shrink:0;margin-left:auto;}
 .switch input{opacity:0;width:0;height:0;}
@@ -136,6 +137,25 @@ td{padding:9px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
 .toast.hidden{display:none;}
 canvas{max-width:100%;}
 .danger-zone{border:1px solid #F3C9C9;}
+
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cal-header strong{font-family:'Oswald',sans-serif;text-transform:uppercase;color:var(--navy);font-size:15px;}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10px;color:var(--muted);margin-bottom:5px;}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-day{aspect-ratio:1;border-radius:8px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;position:relative;padding:2px;overflow:hidden;}
+.cal-day.empty{background:none;}
+.cal-day.cal-entreno{background:#E7ECFA;}
+.cal-day.cal-partido{background:var(--red);color:#fff;cursor:pointer;}
+.cal-num{font-weight:600;}
+.cal-tag{font-size:7.5px;line-height:1.1;margin-top:1px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 1px;}
+.cal-legend{display:flex;gap:14px;margin-top:12px;font-size:11px;color:var(--muted);}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle;}
+.dot-entreno{background:#E7ECFA;border:1px solid #B9D3F7;}
+.dot-partido{background:var(--red);}
+
+.dias-semana-grid{display:flex;gap:6px;flex-wrap:wrap;}
+.dia-toggle{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:#fff;color:var(--muted);font-weight:600;cursor:pointer;}
+.dia-toggle.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 
 @media (min-width:700px){
   .bottom-nav{max-width:720px;left:50%;transform:translateX(-50%);border-radius:16px 16px 0 0;border-left:1px solid var(--border);border-right:1px solid var(--border);}
@@ -162,12 +182,33 @@ canvas{max-width:100%;}
         <button class="btn-primary" onclick="abrirModalPartido()">+ Partido</button>
       </div>
 
+      <div class="conv-toolbar">
+        <button type="button" class="btn-ghost active-ghost" id="viewListBtn" onclick="setMinutosView('lista')">Lista</button>
+        <button type="button" class="btn-ghost" id="viewCalBtn" onclick="setMinutosView('calendario')">Calendario</button>
+      </div>
+
       <div id="minutosEmpty" class="empty-state" style="display:none">
         <p>Aún no hay partidos registrados.</p>
         <button class="btn-primary" onclick="abrirModalPartido()">Añadir el primer partido</button>
       </div>
 
       <div id="partidosList"></div>
+
+      <div id="calendarioView" style="display:none">
+        <div class="card">
+          <div class="cal-header">
+            <button class="icon-btn" onclick="cambiarMes(-1)">‹</button>
+            <strong id="calMesLabel"></strong>
+            <button class="icon-btn" onclick="cambiarMes(1)">›</button>
+          </div>
+          <div class="cal-dow"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+          <div class="cal-days" id="calDays"></div>
+          <div class="cal-legend">
+            <span><i class="dot dot-entreno"></i>Entreno</span>
+            <span><i class="dot dot-partido"></i>Partido (toca para abrir)</span>
+          </div>
+        </div>
+      </div>
 
       <div class="card" id="statsCard" style="display:none">
         <h3>Estadísticas de la temporada</h3>
@@ -257,10 +298,31 @@ canvas{max-width:100%;}
       <div id="jugadoresList" class="list-simple"></div>
     </section>
 
-    <!-- TAB ENTRENADORES -->
-    <section id="tab-entrenadores" class="tab-panel">
-      <div class="section-header"><h2>Entrenadores</h2><button class="btn-primary" onclick="abrirModalEntrenador()">+ Añadir</button></div>
-      <div id="entrenadoresList" class="list-simple"></div>
+    <!-- TAB ENTRENAMIENTOS (ejercicios + test físico) -->
+    <section id="tab-entrenamientos" class="tab-panel">
+      <div class="section-header"><h2>Entrenamientos</h2></div>
+
+      <div class="card">
+        <h3>Test de Course Navette</h3>
+        <p class="hint">Registra cada fecha en la que hagáis el test y anota el resultado de cada jugador para ver su progresión a lo largo de la temporada.</p>
+        <button class="btn-primary" onclick="abrirModalTestFecha()" style="width:100%;margin-bottom:10px">+ Nueva fecha de test</button>
+        <div id="testFechasList" class="list-simple"></div>
+        <div class="table-scroll" id="testFisicoWrap" style="display:none">
+          <table>
+            <thead><tr id="testFisicoHead"></tr></thead>
+            <tbody id="testFisicoBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-header" style="margin-bottom:10px">
+          <h3 style="margin:0">Biblioteca de ejercicios</h3>
+          <button class="btn-primary" onclick="abrirModalEjercicio()">+ Añadir</button>
+        </div>
+        <input type="text" id="ejercicioBuscar" placeholder="Buscar por título o categoría..." oninput="renderEjerciciosList()">
+        <div id="ejerciciosList" class="list-simple" style="margin-top:10px"></div>
+      </div>
     </section>
 
     <!-- TAB AJUSTES -->
@@ -278,14 +340,28 @@ canvas{max-width:100%;}
       </div>
 
       <div class="card">
+        <h3>Días de entrenamiento</h3>
+        <p class="hint">Se usan para pintar el calendario de la pestaña Minutos.</p>
+        <div class="dias-semana-grid" id="diasEntrenoGrid"></div>
+      </div>
+
+      <div class="card">
         <h3>Catálogo de motivos de multa</h3>
         <div id="catalogoList" class="list-simple"></div>
         <button class="btn-secondary" onclick="abrirModalMotivo()" style="width:100%">+ Añadir motivo</button>
       </div>
 
+      <div class="card">
+        <div class="section-header" style="margin-bottom:10px">
+          <h3 style="margin:0">Cuerpo técnico</h3>
+          <button class="btn-primary" onclick="abrirModalEntrenador()">+ Añadir</button>
+        </div>
+        <div id="entrenadoresList" class="list-simple"></div>
+      </div>
+
       <div class="card danger-zone">
         <h3>Zona de datos</h3>
-        <p class="hint">Borra jugadores, entrenadores, partidos y multas. Útil solo para empezar de cero (por ejemplo, una temporada nueva). Los datos se guardan en este navegador/dispositivo, así que si cambias de móvil o de navegador no los verás automáticamente allí.</p>
+        <p class="hint">Borra jugadores, entrenadores, partidos, multas, ejercicios y tests. Útil solo para empezar de cero. Los datos se guardan en este navegador/dispositivo.</p>
         <button class="btn-danger" onclick="confirmarBorrarTodo()">Borrar todos los datos</button>
       </div>
     </section>
@@ -305,9 +381,9 @@ canvas{max-width:100%;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4l4 2 4-2 4 3-2 3-2-1v11H8V9l-2 1-2-3z"/></svg>
       <span>Jugadores</span>
     </button>
-    <button class="nav-btn" data-tab="entrenadores">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="15" r="4"/><path d="M9 12h8a3 3 0 000-6h-2"/><path d="M15 6v3"/></svg>
-      <span>Cuerpo técnico</span>
+    <button class="nav-btn" data-tab="entrenamientos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5l5 2.5-5 2.5z"/></svg>
+      <span>Entrenamientos</span>
     </button>
     <button class="nav-btn" data-tab="ajustes">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
@@ -324,7 +400,7 @@ canvas{max-width:100%;}
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
-const STORAGE_KEYS = { roster:'roster', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas' };
+const STORAGE_KEYS = { roster:'roster', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas', ejercicios:'ejercicios', tests:'tests_fisicos' };
 
 const CATALOGO_DEFAULT = [
   ['Retraso injustificado en entrenamiento',1.00],
@@ -361,11 +437,13 @@ const ROSTER_NOMBRES_DEFAULT = [
   [16,'Arribas'],[17,'Davas'],[18,'Rubas'],[19,'Alex'],[20,'Jose Felix']
 ];
 
-const CONFIG_DEFAULT = { duracionPartido:80 };
+const CONFIG_DEFAULT = { duracionPartido:80, diasEntreno:[1,3,5] };
 
-let state = { jugadores:[], entrenadores:[], config:{...CONFIG_DEFAULT}, partidos:[], multas:[], catalogo:[] };
+let state = { jugadores:[], entrenadores:[], config:{...CONFIG_DEFAULT}, partidos:[], multas:[], catalogo:[], ejercicios:[], tests:[] };
 let charts = { minutos:null, estados:null, evolucion:null };
 let currentSort = { key:'minutos', dir:'desc' };
+let minutosView = 'lista';
+let calFecha = new Date();
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
@@ -386,8 +464,6 @@ async function saveKey(key, value){
   }
 }
 
-/* Migra partidos guardados con el formato antiguo (un único "estado": titular/suplente/no_convocado)
-   al formato nuevo, que separa "convocado" (sí/no) de "condicion" (titular/suplente/pendiente). */
 function migrarConvocatoria(partidos){
   (partidos||[]).forEach(p => {
     if(!p.convocatoria) return;
@@ -403,12 +479,14 @@ function migrarConvocatoria(partidos){
 }
 
 async function init(){
-  const [roster, config, partidos, multas, catalogo] = await Promise.all([
+  const [roster, config, partidos, multas, catalogo, ejercicios, tests] = await Promise.all([
     loadKey(STORAGE_KEYS.roster, null),
     loadKey(STORAGE_KEYS.config, null),
     loadKey(STORAGE_KEYS.partidos, []),
     loadKey(STORAGE_KEYS.multas, []),
-    loadKey(STORAGE_KEYS.catalogo, null)
+    loadKey(STORAGE_KEYS.catalogo, null),
+    loadKey(STORAGE_KEYS.ejercicios, []),
+    loadKey(STORAGE_KEYS.tests, [])
   ]);
 
   if(roster){
@@ -421,10 +499,13 @@ async function init(){
   }
 
   state.config = config || {...CONFIG_DEFAULT};
+  if(!state.config.diasEntreno) state.config.diasEntreno = [1,3,5];
   if(!config) await saveKey(STORAGE_KEYS.config, state.config);
 
   state.partidos = migrarConvocatoria(partidos || []);
   state.multas = multas || [];
+  state.ejercicios = ejercicios || [];
+  state.tests = tests || [];
 
   if(catalogo){
     state.catalogo = catalogo;
@@ -442,6 +523,7 @@ function renderAll(){
   renderJugadoresTab();
   renderEntrenadoresTab();
   renderAjustesTab();
+  renderEntrenamientosTab();
 }
 
 /* ===================== UTILIDADES ===================== */
@@ -521,24 +603,26 @@ async function guardarJugador(id){
   }
   await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
   closeModal();
-  renderJugadoresTab(); renderMinutosTab(); renderMultasTab();
+  renderJugadoresTab(); renderMinutosTab(); renderMultasTab(); renderEntrenamientosTab();
   showToast('Jugador guardado.');
 }
 async function borrarJugador(id){
-  if(!confirm('¿Seguro que quieres borrar este jugador? También se perderán sus datos de minutos y multas asociados.')) return;
+  if(!confirm('¿Seguro que quieres borrar este jugador? También se perderán sus datos de minutos, multas y tests asociados.')) return;
   state.jugadores = state.jugadores.filter(j => j.id !== id);
   state.partidos.forEach(p => { if(p.convocatoria) delete p.convocatoria[id]; });
   state.multas = state.multas.filter(m => m.jugadorId !== id);
+  state.tests.forEach(t => { if(t.resultados) delete t.resultados[id]; });
   await Promise.all([
     saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores}),
     saveKey(STORAGE_KEYS.partidos, state.partidos),
-    saveKey(STORAGE_KEYS.multas, state.multas)
+    saveKey(STORAGE_KEYS.multas, state.multas),
+    saveKey(STORAGE_KEYS.tests, state.tests)
   ]);
   renderAll();
   showToast('Jugador eliminado.');
 }
 
-/* ===================== ENTRENADORES ===================== */
+/* ===================== ENTRENADORES (dentro de Ajustes) ===================== */
 function renderEntrenadoresTab(){
   const list = document.getElementById('entrenadoresList');
   if(state.entrenadores.length === 0){
@@ -589,6 +673,50 @@ async function borrarEntrenador(id){
 }
 
 /* ===================== MINUTOS / PARTIDOS ===================== */
+function setMinutosView(v){
+  minutosView = v;
+  document.getElementById('calendarioView').style.display = v==='calendario' ? 'block':'none';
+  const listaVisible = v==='lista';
+  document.getElementById('partidosList').style.display = listaVisible ? 'block':'none';
+  document.getElementById('minutosEmpty').style.display = (listaVisible && state.partidos.length===0) ? 'block':'none';
+  document.getElementById('viewListBtn').classList.toggle('active-ghost', listaVisible);
+  document.getElementById('viewCalBtn').classList.toggle('active-ghost', !listaVisible);
+  if(v==='calendario') renderCalendario();
+}
+function cambiarMes(delta){
+  calFecha.setMonth(calFecha.getMonth()+delta);
+  renderCalendario();
+}
+function renderCalendario(){
+  const year = calFecha.getFullYear(), month = calFecha.getMonth();
+  const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('calMesLabel').textContent = `${meses[month]} ${year}`;
+
+  const primerDia = new Date(year, month, 1);
+  const diasEnMes = new Date(year, month+1, 0).getDate();
+  let startWeekday = primerDia.getDay();
+  startWeekday = startWeekday === 0 ? 7 : startWeekday;
+
+  const partidosPorDia = {};
+  state.partidos.forEach(p => {
+    const d = new Date(p.fecha+'T00:00:00');
+    if(d.getFullYear()===year && d.getMonth()===month) partidosPorDia[d.getDate()] = p;
+  });
+  const diasEntreno = state.config.diasEntreno || [1,3,5];
+
+  let html = '';
+  for(let i=1; i<startWeekday; i++) html += '<div class="cal-day empty"></div>';
+  for(let day=1; day<=diasEnMes; day++){
+    let weekday = new Date(year, month, day).getDay(); weekday = weekday===0?7:weekday;
+    const partido = partidosPorDia[day];
+    let cls = 'cal-day', label = '';
+    if(partido){ cls += ' cal-partido'; label = `<span class="cal-tag">${escapeHtml(partido.rival||'Partido')}</span>`; }
+    else if(diasEntreno.includes(weekday)){ cls += ' cal-entreno'; }
+    html += `<div class="${cls}" ${partido?`onclick="abrirModalConvocatoria('${partido.id}')"`:''}><span class="cal-num">${day}</span>${label}</div>`;
+  }
+  document.getElementById('calDays').innerHTML = html;
+}
+
 function renderMinutosTab(){
   const listEl = document.getElementById('partidosList');
   const emptyEl = document.getElementById('minutosEmpty');
@@ -597,32 +725,32 @@ function renderMinutosTab(){
 
   if(state.partidos.length === 0){
     listEl.innerHTML = '';
-    emptyEl.style.display = 'block';
+    if(minutosView==='lista') emptyEl.style.display = 'block';
     statsCard.style.display = 'none'; c1.style.display='none'; c2.style.display='none'; c3.style.display='none';
-    return;
+  } else {
+    emptyEl.style.display = 'none';
+    statsCard.style.display = 'block'; c1.style.display='block'; c2.style.display='block'; c3.style.display='block';
+
+    const sorted = [...state.partidos].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+    listEl.innerHTML = sorted.map(p => {
+      const nConv = Object.values(p.convocatoria||{}).filter(e => e.convocado).length;
+      return `
+      <div class="card partido-card">
+        <div class="partido-info">
+          <strong>${escapeHtml(p.rival || 'Rival por definir')}</strong>
+          <span class="muted">${formatDateShort(p.fecha)} · ${p.duracion} min · ${nConv} convocados</span>
+        </div>
+        <div class="row-actions">
+          <button class="btn-small" onclick="abrirModalConvocatoria('${p.id}')">Convocatoria</button>
+          <button class="icon-btn" onclick="generarConvocatoriaPDF('${p.id}')">PDF</button>
+          <button class="icon-btn danger" onclick="borrarPartido('${p.id}')">🗑</button>
+        </div>
+      </div>`;
+    }).join('');
+    renderStatsTable();
+    renderCharts();
   }
-  emptyEl.style.display = 'none';
-  statsCard.style.display = 'block'; c1.style.display='block'; c2.style.display='block'; c3.style.display='block';
-
-  const sorted = [...state.partidos].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-  listEl.innerHTML = sorted.map(p => {
-    const nConv = Object.values(p.convocatoria||{}).filter(e => e.convocado).length;
-    return `
-    <div class="card partido-card">
-      <div class="partido-info">
-        <strong>${escapeHtml(p.rival || 'Rival por definir')}</strong>
-        <span class="muted">${formatDateShort(p.fecha)} · ${p.duracion} min · ${nConv} convocados</span>
-      </div>
-      <div class="row-actions">
-        <button class="btn-small" onclick="abrirModalConvocatoria('${p.id}')">Convocatoria</button>
-        <button class="icon-btn" onclick="generarConvocatoriaPDF('${p.id}')">PDF</button>
-        <button class="icon-btn danger" onclick="borrarPartido('${p.id}')">🗑</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  renderStatsTable();
-  renderCharts();
+  if(minutosView==='calendario') renderCalendario();
 }
 
 function abrirModalPartido(){
@@ -661,7 +789,6 @@ async function borrarPartido(id){
   showToast('Partido eliminado.');
 }
 
-/* ---- Convocatoria: "convocado" (sí/no) y "condición" (titular/suplente/pendiente) son decisiones independientes ---- */
 function abrirModalConvocatoria(partidoId){
   const partido = state.partidos.find(p => p.id === partidoId);
   const jugadoresOrdenados = [...state.jugadores].sort((a,b) => a.dorsal - b.dorsal);
@@ -690,7 +817,7 @@ function abrirModalConvocatoria(partidoId){
 
   openModal(`
     <h3>${escapeHtml(partido.rival||'Partido')} · ${formatDateShort(partido.fecha)}</h3>
-    <p class="hint">Primero decide quién está <strong>convocado</strong> (esto es lo que sale en el PDF). Lo de titular/suplente y los minutos lo puedes rellenar más adelante, cuando lo decidas o cuando termine el partido — no hace falta hacerlo todo ahora.</p>
+    <p class="hint">Primero decide quién está <strong>convocado</strong> (esto es lo que sale en el PDF). Titular/suplente y minutos lo puedes rellenar cuando lo decidas o al terminar el partido.</p>
     <div class="conv-toolbar">
       <button type="button" class="btn-ghost" onclick="marcarTodosConvocatoria(true)">Marcar todos convocados</button>
       <button type="button" class="btn-ghost" onclick="marcarTodosConvocatoria(false)">Marcar todos NO convocados</button>
@@ -701,9 +828,7 @@ function abrirModalConvocatoria(partidoId){
       <button class="btn-primary" onclick="guardarConvocatoria('${partidoId}')">Guardar</button>
     </div>`);
 
-  document.querySelectorAll('.conv-toggle').forEach(chk => {
-    chk.addEventListener('change', () => toggleConvocadoRow(chk));
-  });
+  document.querySelectorAll('.conv-toggle').forEach(chk => chk.addEventListener('change', () => toggleConvocadoRow(chk)));
   document.querySelectorAll('.seg-cond .seg-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const row = btn.closest('.convocatoria-row');
@@ -723,10 +848,7 @@ function toggleConvocadoRow(chk){
   }
 }
 function marcarTodosConvocatoria(convocado){
-  document.querySelectorAll('.conv-toggle').forEach(chk => {
-    chk.checked = convocado;
-    toggleConvocadoRow(chk);
-  });
+  document.querySelectorAll('.conv-toggle').forEach(chk => { chk.checked = convocado; toggleConvocadoRow(chk); });
 }
 async function guardarConvocatoria(partidoId){
   const partido = state.partidos.find(p => p.id === partidoId);
@@ -747,7 +869,6 @@ async function guardarConvocatoria(partidoId){
   showToast('Convocatoria guardada.');
 }
 
-/* ---- Estadísticas ---- */
 function computeStats(){
   return state.jugadores.map(j => {
     let minutos=0, titular=0, suplente=0, noConvocado=0;
@@ -798,7 +919,6 @@ function renderStatsTable(){
     </tr>`).join('');
 }
 
-/* ---- Gráficas ---- */
 function renderCharts(){
   const stats = computeStats().sort((a,b) => b.minutos - a.minutos);
   const labels = stats.map(s => formatName(s.jugador.nombre));
@@ -841,7 +961,6 @@ function renderEvolucionChart(){
   });
 }
 
-/* ---- PDF de convocatoria (solo depende de "convocado", no de titular/suplente) ---- */
 function generarConvocatoriaPDF(partidoId){
   const partido = state.partidos.find(p => p.id === partidoId);
   if(!window.jspdf){ showToast('No se pudo cargar el generador de PDF. Revisa tu conexión e inténtalo de nuevo.'); return; }
@@ -1022,9 +1141,152 @@ function renderMultasAlert(){
   banner.innerHTML = `⚠️ ${vencidas.length} multa(s) con más de 2 semanas sin pagar — recargo acumulado: ${money(recargoTotal)}`;
 }
 
+/* ===================== ENTRENAMIENTOS: TEST DE COURSE NAVETTE ===================== */
+function renderTestFisico(){
+  const tests = [...state.tests].sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+  const listEl = document.getElementById('testFechasList');
+  if(tests.length===0){
+    listEl.innerHTML = '<div class="empty-state"><p>Aún no hay ninguna fecha de test registrada.</p></div>';
+    document.getElementById('testFisicoWrap').style.display = 'none';
+    return;
+  }
+  listEl.innerHTML = tests.map(t => `
+    <div class="list-row">
+      <span class="list-name">${formatDateLong(t.fecha)}</span>
+      <div class="row-actions">
+        <button class="icon-btn" onclick="abrirModalResultadosTest('${t.id}')">✎</button>
+        <button class="icon-btn danger" onclick="borrarTestFecha('${t.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('testFisicoWrap').style.display = state.jugadores.length ? 'block' : 'none';
+  const testsAsc = [...tests].sort((a,b) => new Date(a.fecha)-new Date(b.fecha));
+  document.getElementById('testFisicoHead').innerHTML = '<th>Jugador</th>' + testsAsc.map(t => `<th>${formatDateShort(t.fecha)}</th>`).join('');
+  const jugadoresOrdenados = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal);
+  document.getElementById('testFisicoBody').innerHTML = jugadoresOrdenados.map(j => {
+    const cells = testsAsc.map(t => `<td>${escapeHtml((t.resultados||{})[j.id] || '—')}</td>`).join('');
+    return `<tr><td>${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</td>${cells}</tr>`;
+  }).join('');
+}
+function abrirModalTestFecha(){
+  openModal(`
+    <h3>Nueva fecha de test</h3>
+    <label>Fecha<input type="date" id="mTestFecha" value="${todayISO()}"></label>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="crearTestFecha()">Crear y rellenar resultados</button>
+    </div>`);
+}
+async function crearTestFecha(){
+  const fecha = document.getElementById('mTestFecha').value;
+  if(!fecha){ showToast('Indica una fecha.'); return; }
+  const nuevo = {id:uid(), fecha, resultados:{}};
+  state.tests.push(nuevo);
+  await saveKey(STORAGE_KEYS.tests, state.tests);
+  closeModal();
+  renderTestFisico();
+  abrirModalResultadosTest(nuevo.id);
+}
+async function borrarTestFecha(id){
+  if(!confirm('¿Borrar esta fecha de test y sus resultados?')) return;
+  state.tests = state.tests.filter(t => t.id !== id);
+  await saveKey(STORAGE_KEYS.tests, state.tests);
+  renderTestFisico();
+  showToast('Fecha de test eliminada.');
+}
+function abrirModalResultadosTest(testId){
+  const test = state.tests.find(t => t.id === testId);
+  const rows = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal).map(j => `
+    <div class="conv-row-top" data-jid="${j.id}" style="padding:6px 0;border-bottom:1px solid var(--border);">
+      <span class="dorsal-badge small">${j.dorsal}</span>
+      <span class="conv-name">${escapeHtml(formatName(j.nombre))}</span>
+      <input type="text" class="test-result-input" placeholder="ej. 8.4" value="${escapeHtml((test.resultados||{})[j.id]||'')}">
+    </div>`).join('');
+  openModal(`
+    <h3>Resultados · ${formatDateLong(test.fecha)}</h3>
+    <p class="hint">Anota el resultado en el formato que uses habitualmente (nivel.periodo, nº de tramos, etc.). Déjalo en blanco si ese día no hizo el test.</p>
+    <div class="convocatoria-list">${rows}</div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+      <button class="btn-primary" onclick="guardarResultadosTest('${testId}')">Guardar</button>
+    </div>`);
+}
+async function guardarResultadosTest(testId){
+  const test = state.tests.find(t => t.id === testId);
+  if(!test.resultados) test.resultados = {};
+  document.querySelectorAll('#modalContent .conv-row-top[data-jid]').forEach(row => {
+    const jid = row.dataset.jid;
+    const val = row.querySelector('.test-result-input').value.trim();
+    test.resultados[jid] = val;
+  });
+  await saveKey(STORAGE_KEYS.tests, state.tests);
+  closeModal();
+  renderTestFisico();
+  showToast('Resultados guardados.');
+}
+
+/* ===================== ENTRENAMIENTOS: BIBLIOTECA DE EJERCICIOS ===================== */
+function renderEjerciciosList(){
+  const q = (document.getElementById('ejercicioBuscar').value || '').toLowerCase();
+  const filtered = state.ejercicios.filter(e => !q || e.titulo.toLowerCase().includes(q) || (e.categoria||'').toLowerCase().includes(q));
+  const el = document.getElementById('ejerciciosList');
+  if(state.ejercicios.length === 0){ el.innerHTML = '<div class="empty-state"><p>Aún no has añadido ningún ejercicio.</p></div>'; return; }
+  if(filtered.length === 0){ el.innerHTML = '<div class="empty-state"><p>No hay ejercicios que coincidan con la búsqueda.</p></div>'; return; }
+  el.innerHTML = filtered.map(e => `
+    <div class="list-row">
+      <span class="list-name">
+        <a href="${escapeHtml(e.url)}" target="_blank" rel="noopener" style="color:var(--navy);text-decoration:none;font-weight:600;">${escapeHtml(e.titulo)}</a>
+        ${e.categoria ? `<br><span class="muted small">${escapeHtml(e.categoria)}</span>` : ''}
+      </span>
+      <div class="row-actions">
+        <button class="icon-btn" onclick="abrirModalEjercicio('${e.id}')">✎</button>
+        <button class="icon-btn danger" onclick="borrarEjercicio('${e.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function abrirModalEjercicio(id){
+  const ej = id ? state.ejercicios.find(e => e.id === id) : null;
+  openModal(`
+    <h3>${ej ? 'Editar ejercicio' : 'Añadir ejercicio'}</h3>
+    <label>Título<input type="text" id="mEjTitulo" value="${ej ? escapeHtml(ej.titulo) : ''}" placeholder="Ej: Rondos 4v2"></label>
+    <label>Categoría (opcional)<input type="text" id="mEjCategoria" value="${ej ? escapeHtml(ej.categoria||'') : ''}" placeholder="Técnica, Físico, Táctica..."></label>
+    <label>Enlace (TikTok, TopLiderCoach...)<input type="url" id="mEjUrl" value="${ej ? escapeHtml(ej.url) : ''}" placeholder="https://..."></label>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarEjercicio('${id||''}')">Guardar</button>
+    </div>`);
+}
+async function guardarEjercicio(id){
+  const titulo = document.getElementById('mEjTitulo').value.trim();
+  const categoria = document.getElementById('mEjCategoria').value.trim();
+  const url = document.getElementById('mEjUrl').value.trim();
+  if(!titulo || !url){ showToast('Completa al menos el título y el enlace.'); return; }
+  if(id){
+    const e = state.ejercicios.find(x => x.id === id);
+    e.titulo=titulo; e.categoria=categoria; e.url=url;
+  } else {
+    state.ejercicios.push({id:uid(), titulo, categoria, url});
+  }
+  await saveKey(STORAGE_KEYS.ejercicios, state.ejercicios);
+  closeModal(); renderEjerciciosList();
+  showToast('Ejercicio guardado.');
+}
+async function borrarEjercicio(id){
+  if(!confirm('¿Borrar este ejercicio?')) return;
+  state.ejercicios = state.ejercicios.filter(e => e.id !== id);
+  await saveKey(STORAGE_KEYS.ejercicios, state.ejercicios);
+  renderEjerciciosList();
+  showToast('Ejercicio eliminado.');
+}
+function renderEntrenamientosTab(){
+  renderTestFisico();
+  renderEjerciciosList();
+}
+
 /* ===================== AJUSTES ===================== */
 function renderAjustesTab(){
   document.getElementById('configDuracion').value = state.config.duracionPartido;
+  renderDiasEntrenoConfig();
   renderCatalogoList();
 }
 async function guardarConfig(){
@@ -1033,6 +1295,20 @@ async function guardarConfig(){
   state.config.duracionPartido = val;
   await saveKey(STORAGE_KEYS.config, state.config);
   showToast('Duración por defecto actualizada.');
+}
+function renderDiasEntrenoConfig(){
+  const dias = [[1,'L'],[2,'M'],[3,'X'],[4,'J'],[5,'V'],[6,'S'],[7,'D']];
+  const activos = state.config.diasEntreno || [1,3,5];
+  document.getElementById('diasEntrenoGrid').innerHTML = dias.map(([val,label]) => `
+    <button type="button" class="dia-toggle ${activos.includes(val)?'active':''}" onclick="toggleDiaEntreno(${val})">${label}</button>`).join('');
+}
+async function toggleDiaEntreno(dia){
+  let activos = state.config.diasEntreno || [1,3,5];
+  activos = activos.includes(dia) ? activos.filter(d=>d!==dia) : [...activos, dia];
+  state.config.diasEntreno = activos.sort((a,b)=>a-b);
+  await saveKey(STORAGE_KEYS.config, state.config);
+  renderDiasEntrenoConfig();
+  showToast('Días de entrenamiento actualizados.');
 }
 function renderCatalogoList(){
   document.getElementById('catalogoList').innerHTML = state.catalogo.map(c => `
@@ -1076,9 +1352,9 @@ async function borrarMotivo(id){
   renderCatalogoList(); renderMultasTab();
 }
 async function confirmarBorrarTodo(){
-  if(!confirm('Esto borrará TODOS los datos: jugadores, entrenadores, partidos y multas. ¿Seguro?')) return;
+  if(!confirm('Esto borrará TODOS los datos: jugadores, entrenadores, partidos, multas, ejercicios y tests. ¿Seguro?')) return;
   if(!confirm('De verdad, ¿seguro? Esta acción no se puede deshacer.')) return;
-  state.jugadores = []; state.entrenadores = []; state.partidos = []; state.multas = [];
+  state.jugadores = []; state.entrenadores = []; state.partidos = []; state.multas = []; state.ejercicios = []; state.tests = [];
   state.catalogo = CATALOGO_DEFAULT.map(c => ({...c}));
   state.config = {...CONFIG_DEFAULT};
   await Promise.all([
@@ -1086,7 +1362,9 @@ async function confirmarBorrarTodo(){
     saveKey(STORAGE_KEYS.partidos, []),
     saveKey(STORAGE_KEYS.multas, []),
     saveKey(STORAGE_KEYS.catalogo, state.catalogo),
-    saveKey(STORAGE_KEYS.config, state.config)
+    saveKey(STORAGE_KEYS.config, state.config),
+    saveKey(STORAGE_KEYS.ejercicios, []),
+    saveKey(STORAGE_KEYS.tests, [])
   ]);
   renderAll();
   showToast('Datos borrados.');
