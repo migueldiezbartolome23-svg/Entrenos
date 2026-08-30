@@ -31,7 +31,13 @@ button,input,select{font-family:'Inter',sans-serif;}
 #app{display:flex;flex-direction:column;min-height:100vh;}
 
 .topbar{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;padding:16px 18px calc(16px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;}
-.crest{width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;flex-shrink:0;border:2px solid rgba(255,255,255,.35);}
+.crest{width:40px;height:40px;border-radius:11px;flex-shrink:0;overflow:hidden;box-shadow:0 0 0 1.5px rgba(255,255,255,.35);}
+.crest img{width:100%;height:100%;object-fit:cover;display:block;}
+
+.splash{position:fixed;inset:0;z-index:1000;background:radial-gradient(circle at 50% 40%,var(--navy-2),var(--navy) 70%);display:flex;align-items:center;justify-content:center;transition:opacity .5s ease, visibility .5s ease;}
+.splash img{width:44vw;max-width:220px;border-radius:18%;box-shadow:0 10px 40px rgba(0,0,0,.4);animation:splashPop .6s cubic-bezier(.2,.9,.3,1.2);}
+.splash.hide{opacity:0;visibility:hidden;pointer-events:none;}
+@keyframes splashPop{from{transform:scale(.75);opacity:0;}to{transform:scale(1);opacity:1;}}
 .titles h1{font-size:19px;text-transform:uppercase;}
 .titles span{font-size:11px;opacity:.75;}
 
@@ -137,9 +143,10 @@ canvas{max-width:100%;}
 </style>
 </head>
 <body>
+<div class="splash" id="splashScreen"><img src="logo-header.png" alt="Cadete A"></div>
 <div id="app">
   <header class="topbar">
-    <div class="crest">CDSP</div>
+    <div class="crest"><img src="logo-header.png" alt="Escudo"></div>
     <div class="titles">
       <h1>Cadete A</h1>
       <span>C.D. San Pedro · 2026-2027</span>
@@ -1100,6 +1107,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('modalOverlay').addEventListener('click', (e) => { if(e.target.id === 'modalOverlay') closeModal(); });
   init();
+
+  const splash = document.getElementById('splashScreen');
+  setTimeout(() => splash.classList.add('hide'), 1300);
+  splash.addEventListener('click', () => splash.classList.add('hide'));
 });
 </script>
 </body>
