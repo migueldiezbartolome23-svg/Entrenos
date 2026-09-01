@@ -73,8 +73,14 @@ main#content{flex:1;padding:16px 16px calc(92px + env(safe-area-inset-bottom,0px
 .list-name{flex:1;font-size:14px;}
 .row-actions{display:flex;gap:2px;margin-left:auto;flex-shrink:0;}
 
-.dorsal-badge{width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;flex-shrink:0;}
+.dorsal-badge{width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;flex-shrink:0;overflow:hidden;}
+.dorsal-badge img{width:100%;height:100%;object-fit:cover;}
 .dorsal-badge.small{width:24px;height:24px;font-size:11px;}
+.dorsal-badge.large{width:64px;height:64px;font-size:22px;}
+.foto-preview-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.img-preview-box{width:100%;height:90px;border:1px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--bg);margin-bottom:8px;}
+.img-preview-box img{max-width:100%;max-height:100%;object-fit:contain;}
+.img-preview-box.empty{color:var(--muted);font-size:11.5px;}
 
 .empty-state{text-align:center;padding:30px 16px;color:var(--muted);}
 .empty-state p{margin:0 0 14px;font-size:14px;}
@@ -580,6 +586,42 @@ function formatDateShort(iso){ if(!iso) return ''; const [y,m,d]=iso.split('-');
 function formatDateLong(iso){ if(!iso) return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
 function money(n){ return n.toFixed(2).replace('.',',') + ' €'; }
 
+function leerYRedimensionarImagen(file, maxSize, calidad){
+  maxSize = maxSize || 300; calidad = calidad || 0.75;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if(w >= h){ if(w > maxSize){ h = Math.round(h*maxSize/w); w = maxSize; } }
+        else { if(h > maxSize){ w = Math.round(w*maxSize/h); h = maxSize; } }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', calidad));
+      };
+      img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+function getImageDimensions(base64){
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({w: img.naturalWidth || 1, h: img.naturalHeight || 1});
+    img.onerror = () => resolve({w:1, h:1});
+    img.src = base64;
+  });
+}
+function avatarHtml(jugador, sizeClass){
+  sizeClass = sizeClass || '';
+  if(jugador && jugador.foto) return `<span class="dorsal-badge ${sizeClass}"><img src="${jugador.foto}"></span>`;
+  return `<span class="dorsal-badge ${sizeClass}">${jugador ? jugador.dorsal : ''}</span>`;
+}
+
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -612,7 +654,7 @@ function renderJugadoresTab(){
   const sorted = [...state.jugadores].sort((a,b) => a.dorsal - b.dorsal);
   list.innerHTML = sorted.map(j => `
     <div class="list-row">
-      <span class="dorsal-badge">${j.dorsal}</span>
+      ${avatarHtml(j)}
       <span class="list-name">${escapeHtml(formatName(j.nombre))}</span>
       <div class="row-actions">
         <button class="icon-btn" onclick="abrirModalJugador('${j.id}')">✎</button>
@@ -620,16 +662,34 @@ function renderJugadoresTab(){
       </div>
     </div>`).join('');
 }
+let fotoJugadorPendiente = undefined;
+let convocatoriaImagenPendiente = undefined;
 function abrirModalJugador(id){
   const jugador = id ? state.jugadores.find(j => j.id === id) : null;
+  fotoJugadorPendiente = undefined;
   openModal(`
     <h3>${jugador ? 'Editar jugador' : 'Añadir jugador'}</h3>
+    <div class="foto-preview-row">
+      ${jugador&&jugador.foto?`<span class="dorsal-badge large"><img id="mJugFotoImg" src="${jugador.foto}"></span>`:`<span class="dorsal-badge large" id="mJugFotoImg">${jugador?jugador.dorsal:'?'}</span>`}
+      <label style="flex:1;margin-bottom:0">Foto (opcional)<input type="file" accept="image/*" id="mJugFoto" onchange="previewFotoJugador(event)"></label>
+    </div>
     <label>Dorsal<input type="number" id="mJugDorsal" value="${jugador ? jugador.dorsal : ''}" min="1"></label>
     <label>Nombre<input type="text" id="mJugNombre" value="${jugador ? escapeHtml(jugador.nombre) : ''}"></label>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="guardarJugador('${id||''}')">Guardar</button>
     </div>`);
+}
+async function previewFotoJugador(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    fotoJugadorPendiente = await leerYRedimensionarImagen(file, 300, 0.75);
+    const holder = document.getElementById('mJugFotoImg');
+    holder.outerHTML = `<span class="dorsal-badge large"><img id="mJugFotoImg" src="${fotoJugadorPendiente}"></span>`;
+  }catch(err){
+    showToast('No se pudo procesar la imagen.');
+  }
 }
 async function guardarJugador(id){
   const dorsal = parseInt(document.getElementById('mJugDorsal').value, 10);
@@ -638,8 +698,9 @@ async function guardarJugador(id){
   if(id){
     const j = state.jugadores.find(x => x.id === id);
     j.dorsal = dorsal; j.nombre = nombre;
+    if(fotoJugadorPendiente !== undefined) j.foto = fotoJugadorPendiente;
   } else {
-    state.jugadores.push({id:uid(), dorsal, nombre});
+    state.jugadores.push({id:uid(), dorsal, nombre, foto: fotoJugadorPendiente || null});
   }
   await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
   closeModal();
@@ -776,11 +837,13 @@ function renderMinutosTab(){
       const nConv = Object.values(p.convocatoria||{}).filter(e => e.convocado).length;
       const jornadaTxt = p.jornada ? `J${p.jornada} · ` : '';
       const localTxt = p.local===true ? ' · Local' : (p.local===false ? ' · Visitante' : '');
+      const resultadoTxt = p.resultado ? ` · ${escapeHtml(p.resultado)}` : '';
+      const formacionTxt = p.formacion ? ` · ${escapeHtml(p.formacion)}` : '';
       return `
       <div class="card partido-card">
         <div class="partido-info">
-          <strong>${jornadaTxt}${escapeHtml(p.rival || 'Rival por definir')}</strong>
-          <span class="muted">${formatDateShort(p.fecha)} · ${p.duracion} min · ${nConv} convocados${localTxt}</span>
+          <strong>${jornadaTxt}${escapeHtml(p.rival || 'Rival por definir')}${resultadoTxt}</strong>
+          <span class="muted">${formatDateShort(p.fecha)} · ${p.duracion} min · ${nConv} convocados${localTxt}${formacionTxt}</span>
         </div>
         <div class="row-actions">
           <button class="btn-small" onclick="abrirModalConvocatoria('${p.id}')">Convocatoria</button>
@@ -798,6 +861,7 @@ function renderMinutosTab(){
 
 function abrirModalPartido(id){
   const p = id ? state.partidos.find(x => x.id === id) : null;
+  const formaciones = ['4-3-3','4-2-3-1','4-4-2','3-5-2','3-4-3','5-3-2','4-1-4-1'];
   openModal(`
     <h3>${p ? 'Editar partido' : 'Nuevo partido'}</h3>
     <label>Rival<input type="text" id="mPartRival" placeholder="Nombre del equipo rival" value="${p?escapeHtml(p.rival||''):''}"></label>
@@ -814,6 +878,14 @@ function abrirModalPartido(id){
       <option value="visitante" ${p&&p.local===false?'selected':''}>Visitante</option>
       <option value="" ${!p||p.local==null?'selected':''}>Sin definir</option>
     </select></label>
+    <div class="form-grid">
+      <label>Competición (opcional)<input type="text" id="mPartCompeticion" placeholder="Liga, Copa, Amistoso..." value="${p?escapeHtml(p.competicion||''):''}"></label>
+      <label>Formación (opcional)<select id="mPartFormacion">
+        <option value="">Sin definir</option>
+        ${formaciones.map(f => `<option ${p&&p.formacion===f?'selected':''}>${f}</option>`).join('')}
+      </select></label>
+    </div>
+    <label>Resultado (opcional)<input type="text" id="mPartResultado" placeholder="Ej: 3-1" value="${p?escapeHtml(p.resultado||''):''}"></label>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="guardarPartido('${id||''}')">${p?'Guardar cambios':'Crear partido'}</button>
@@ -828,12 +900,15 @@ async function guardarPartido(id){
   const jornada = jornadaVal ? parseInt(jornadaVal,10) : null;
   const localVal = document.getElementById('mPartLocal').value;
   const local = localVal === 'local' ? true : (localVal === 'visitante' ? false : null);
+  const competicion = document.getElementById('mPartCompeticion').value.trim();
+  const formacion = document.getElementById('mPartFormacion').value;
+  const resultado = document.getElementById('mPartResultado').value.trim();
   if(!fecha){ showToast('Indica la fecha del partido.'); return; }
   if(id){
     const p = state.partidos.find(x => x.id === id);
-    Object.assign(p, {rival, fecha, hora, duracion, jornada, local});
+    Object.assign(p, {rival, fecha, hora, duracion, jornada, local, competicion, formacion, resultado});
   } else {
-    const nuevo = {id:uid(), rival, fecha, hora, duracion, jornada, local, convocatoria:{}};
+    const nuevo = {id:uid(), rival, fecha, hora, duracion, jornada, local, competicion, formacion, resultado, imagenConvocatoria:null, convocatoria:{}};
     state.jugadores.forEach(j => { nuevo.convocatoria[j.id] = {convocado:false, condicion:null, minutos:0}; });
     state.partidos.push(nuevo);
   }
@@ -863,7 +938,7 @@ function abrirModalConvocatoria(partidoId){
     return `
     <div class="convocatoria-row" data-jid="${j.id}">
       <div class="conv-row-top">
-        <span class="dorsal-badge small">${j.dorsal}</span>
+        ${avatarHtml(j, 'small')}
         <span class="conv-name">${escapeHtml(formatName(j.nombre))}</span>
         <label class="switch">
           <input type="checkbox" class="conv-toggle" ${e.convocado?'checked':''}>
@@ -881,9 +956,17 @@ function abrirModalConvocatoria(partidoId){
     </div>`;
   }).join('');
 
+  convocatoriaImagenPendiente = undefined;
   openModal(`
     <h3>${escapeHtml(partido.rival||'Partido')} · ${formatDateShort(partido.fecha)}</h3>
     <p class="hint">Primero decide quién está <strong>convocado</strong> (esto es lo que sale en el PDF). Titular/suplente y minutos lo puedes rellenar cuando lo decidas o al terminar el partido.</p>
+    <label>Imagen para el PDF de esta convocatoria (opcional)
+      <input type="file" accept="image/*" id="mConvImagen" onchange="previewImagenConvocatoria(event)">
+    </label>
+    <div class="img-preview-box ${partido.imagenConvocatoria?'':'empty'}" id="mConvImagenPreview">
+      ${partido.imagenConvocatoria ? `<img src="${partido.imagenConvocatoria}">` : 'Sin imagen — se usará el escudo del club'}
+    </div>
+    ${partido.imagenConvocatoria ? `<button type="button" class="btn-ghost" style="margin-bottom:12px" onclick="quitarImagenConvocatoria()">Quitar imagen</button>` : ''}
     <div class="conv-toolbar">
       <button type="button" class="btn-ghost" onclick="marcarTodosConvocatoria(true)">Marcar todos convocados</button>
       <button type="button" class="btn-ghost" onclick="marcarTodosConvocatoria(false)">Marcar todos NO convocados</button>
@@ -916,6 +999,22 @@ function toggleConvocadoRow(chk){
 function marcarTodosConvocatoria(convocado){
   document.querySelectorAll('.conv-toggle').forEach(chk => { chk.checked = convocado; toggleConvocadoRow(chk); });
 }
+async function previewImagenConvocatoria(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    convocatoriaImagenPendiente = await leerYRedimensionarImagen(file, 700, 0.8);
+    document.getElementById('mConvImagenPreview').outerHTML = `<div class="img-preview-box" id="mConvImagenPreview"><img src="${convocatoriaImagenPendiente}"></div>`;
+  }catch(err){
+    showToast('No se pudo procesar la imagen.');
+  }
+}
+function quitarImagenConvocatoria(){
+  convocatoriaImagenPendiente = null;
+  const box = document.getElementById('mConvImagenPreview');
+  box.className = 'img-preview-box empty';
+  box.textContent = 'Sin imagen — se usará el escudo del club';
+}
 async function guardarConvocatoria(partidoId){
   const partido = state.partidos.find(p => p.id === partidoId);
   document.querySelectorAll('.convocatoria-row').forEach(row => {
@@ -929,6 +1028,7 @@ async function guardarConvocatoria(partidoId){
     const minutos = convocado ? (parseInt(row.querySelector('.min-input').value,10) || 0) : 0;
     partido.convocatoria[jid] = {convocado, condicion, minutos};
   });
+  if(convocatoriaImagenPendiente !== undefined) partido.imagenConvocatoria = convocatoriaImagenPendiente;
   await saveKey(STORAGE_KEYS.partidos, state.partidos);
   closeModal();
   renderMinutosTab();
@@ -1039,7 +1139,7 @@ function pdfListaDosColumnas(doc, items, startY, opts={}){
   return y;
 }
 
-function generarConvocatoriaPDF(partidoId){
+async function generarConvocatoriaPDF(partidoId){
   const partido = state.partidos.find(p => p.id === partidoId);
   if(!window.jspdf){ showToast('No se pudo cargar el generador de PDF. Revisa tu conexión e inténtalo de nuevo.'); return; }
   try{
@@ -1049,35 +1149,39 @@ function generarConvocatoriaPDF(partidoId){
     const convocados = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).sort((a,b) => a.dorsal - b.dorsal);
     const desconvocados = state.jugadores.filter(j => !(partido.convocatoria||{})[j.id]?.convocado).sort((a,b) => a.dorsal - b.dorsal);
 
-    try{ doc.addImage(LOGO_BASE64, 'PNG', 14, 10, 24, 24); }catch(e){}
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(20);
-    doc.setTextColor(15,30,61);
-    doc.text('CONVOCATORIA', 118, 24, {align:'center'});
+    const usaLogoDefecto = !partido.imagenConvocatoria;
+    const imagenPDF = partido.imagenConvocatoria || LOGO_BASE64;
+    const formatoImg = usaLogoDefecto ? 'PNG' : 'JPEG';
+    const dim = await getImageDimensions(imagenPDF);
+    const maxW = 100, maxH = 48;
+    let w = maxW, h = maxW * dim.h/dim.w;
+    if(h > maxH){ h = maxH; w = maxH * dim.w/dim.h; }
+    const xImg = (210-w)/2;
+    try{ doc.addImage(imagenPDF, formatoImg, xImg, 12, w, h); }catch(e){ console.error(e); }
 
-    let y = 42;
-    doc.setDrawColor(228,230,236);
-    doc.setLineWidth(0.6);
-    doc.roundedRect(14, y, 182, 30, 3, 3);
-
+    let y = 12 + h + 12;
     doc.setFont('helvetica','bold');
-    doc.setFontSize(13);
+    doc.setFontSize(22);
     doc.setTextColor(15,30,61);
-    doc.text('C.D. SAN PEDRO · CADETE A', 20, y+11);
+    doc.text('CONVOCATORIA', 105, y, {align:'center'});
+    y += 10;
+    doc.setFontSize(14);
     doc.setTextColor(210,38,48);
-    doc.text(partido.rival || 'Rival por definir', 20, y+21);
+    doc.text(`RIVAL: ${(partido.rival || 'POR DEFINIR').toUpperCase()}`, 105, y, {align:'center'});
+    y += 9;
 
     doc.setFont('helvetica','normal');
     doc.setFontSize(9.5);
-    doc.setTextColor(70,70,80);
+    doc.setTextColor(90,90,100);
     let metaLine = formatDateLong(partido.fecha);
     if(partido.hora) metaLine += `   ·   ${partido.hora}`;
     if(partido.jornada) metaLine += `   ·   Jornada ${partido.jornada}`;
     if(partido.local === true) metaLine += '   ·   Local';
     else if(partido.local === false) metaLine += '   ·   Visitante';
-    doc.text(metaLine, 190, 24, {align:'right', maxWidth:80});
+    if(partido.competicion) metaLine += `   ·   ${partido.competicion}`;
+    doc.text(metaLine, 105, y, {align:'center'});
+    y += 13;
 
-    y += 42;
     doc.setFont('helvetica','bold');
     doc.setFontSize(12);
     doc.setTextColor(15,30,61);
@@ -1095,6 +1199,7 @@ function generarConvocatoriaPDF(partidoId){
     }
 
     y += 6;
+    if(y > 265){ doc.addPage(); y = 20; }
     doc.setFont('helvetica','bold');
     doc.setFontSize(12);
     doc.setTextColor(15,30,61);
