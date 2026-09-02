@@ -17,6 +17,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
 <style>
 :root{
   --navy:#0F1E3D; --navy-2:#17294D; --red:#D22630; --red-dark:#A81B24;
@@ -406,6 +408,21 @@ canvas{max-width:100%;}
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDierIbk5PCth17NLpf1pKL30XvnqUkdCo",
+  authDomain: "cadete-a-app.firebaseapp.com",
+  databaseURL: "https://cadete-a-app-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "cadete-a-app",
+  storageBucket: "cadete-a-app.firebasestorage.app",
+  messagingSenderId: "359823718685",
+  appId: "1:359823718685:web:d51d1b5246e00d92c549f4"
+};
+let fbDb = null;
+try{
+  firebase.initializeApp(FIREBASE_CONFIG);
+  fbDb = firebase.database();
+}catch(e){ console.error('Error inicializando Firebase', e); }
 const STORAGE_KEYS = { roster:'roster', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas', ejercicios:'ejercicios', tests:'tests_fisicos' };
 
 const CATALOGO_DEFAULT = [
@@ -484,7 +501,7 @@ let calFecha = new Date();
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 
-/* ===================== ALMACENAMIENTO (localStorage: funciona en GitHub Pages) ===================== */
+/* ===================== ALMACENAMIENTO (local + sincronizado con Firebase) ===================== */
 async function loadKey(key, fallback){
   try{
     const raw = localStorage.getItem(STORAGE_PREFIX + key);
@@ -497,9 +514,16 @@ async function saveKey(key, value){
     localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
   }catch(e){
     console.error('Error guardando', key, e);
-    showToast('No se pudo guardar el cambio en este dispositivo.');
+  }
+  if(!fbDb) return;
+  try{
+    await fbDb.ref(key).set(value);
+  }catch(e){
+    console.error('Error sincronizando', key, e);
+    showToast('Guardado en este dispositivo, pero no se pudo sincronizar. Revisa tu conexión.');
   }
 }
+function normalizarArray(v){ return Array.isArray(v) ? v : Object.values(v || {}); }
 
 function migrarConvocatoria(partidos){
   (partidos||[]).forEach(p => {
@@ -561,6 +585,82 @@ async function init(){
   }
 
   renderAll();
+
+  if(fbDb){
+    try{
+      const snap = await fbDb.ref('/').once('value');
+      const remoto = snap.val();
+      if(remoto && Object.keys(remoto).length){
+        aplicarDatosRemotos(remoto);
+        renderAll();
+      } else {
+        await Promise.all([
+          fbDb.ref(STORAGE_KEYS.roster).set({jugadores:state.jugadores, entrenadores:state.entrenadores}),
+          fbDb.ref(STORAGE_KEYS.config).set(state.config),
+          fbDb.ref(STORAGE_KEYS.partidos).set(state.partidos),
+          fbDb.ref(STORAGE_KEYS.multas).set(state.multas),
+          fbDb.ref(STORAGE_KEYS.catalogo).set(state.catalogo),
+          fbDb.ref(STORAGE_KEYS.ejercicios).set(state.ejercicios),
+          fbDb.ref(STORAGE_KEYS.tests).set(state.tests)
+        ]);
+      }
+      activarSincronizacionEnVivo();
+    }catch(e){
+      console.error('No se pudo sincronizar con Firebase', e);
+      showToast('Sin conexión con la sincronización — usando los datos de este dispositivo.');
+    }
+  }
+}
+
+function aplicarDatosRemotos(remoto){
+  if(remoto[STORAGE_KEYS.roster]){
+    state.jugadores = remoto[STORAGE_KEYS.roster].jugadores || [];
+    state.entrenadores = remoto[STORAGE_KEYS.roster].entrenadores || [];
+  }
+  if(remoto[STORAGE_KEYS.config]){
+    state.config = remoto[STORAGE_KEYS.config];
+    if(!state.config.diasEntreno) state.config.diasEntreno = [1,3,5];
+  }
+  if(remoto[STORAGE_KEYS.partidos]) state.partidos = migrarConvocatoria(normalizarArray(remoto[STORAGE_KEYS.partidos]));
+  state.multas = remoto[STORAGE_KEYS.multas] ? normalizarArray(remoto[STORAGE_KEYS.multas]) : [];
+  if(remoto[STORAGE_KEYS.catalogo]) state.catalogo = normalizarArray(remoto[STORAGE_KEYS.catalogo]);
+  state.ejercicios = remoto[STORAGE_KEYS.ejercicios] ? normalizarArray(remoto[STORAGE_KEYS.ejercicios]) : [];
+  state.tests = remoto[STORAGE_KEYS.tests] ? normalizarArray(remoto[STORAGE_KEYS.tests]) : [];
+}
+
+function activarSincronizacionEnVivo(){
+  fbDb.ref(STORAGE_KEYS.roster).on('value', snap => {
+    const v = snap.val(); if(!v) return;
+    state.jugadores = v.jugadores || []; state.entrenadores = v.entrenadores || [];
+    renderJugadoresTab(); renderEntrenadoresTab(); renderMinutosTab(); renderMultasTab(); renderEntrenamientosTab();
+  });
+  fbDb.ref(STORAGE_KEYS.config).on('value', snap => {
+    const v = snap.val(); if(!v) return;
+    state.config = v; if(!state.config.diasEntreno) state.config.diasEntreno = [1,3,5];
+    renderAjustesTab(); renderMinutosTab();
+  });
+  fbDb.ref(STORAGE_KEYS.partidos).on('value', snap => {
+    const v = snap.val(); if(!v) return;
+    state.partidos = migrarConvocatoria(normalizarArray(v));
+    renderMinutosTab();
+  });
+  fbDb.ref(STORAGE_KEYS.multas).on('value', snap => {
+    state.multas = snap.val() ? normalizarArray(snap.val()) : [];
+    renderMultasTab();
+  });
+  fbDb.ref(STORAGE_KEYS.catalogo).on('value', snap => {
+    const v = snap.val(); if(!v) return;
+    state.catalogo = normalizarArray(v);
+    renderMultasTab(); renderCatalogoList();
+  });
+  fbDb.ref(STORAGE_KEYS.ejercicios).on('value', snap => {
+    state.ejercicios = snap.val() ? normalizarArray(snap.val()) : [];
+    renderEntrenamientosTab();
+  });
+  fbDb.ref(STORAGE_KEYS.tests).on('value', snap => {
+    state.tests = snap.val() ? normalizarArray(snap.val()) : [];
+    renderEntrenamientosTab();
+  });
 }
 
 function renderAll(){
