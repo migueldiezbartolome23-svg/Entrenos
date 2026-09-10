@@ -481,6 +481,7 @@ const CATALOGO_DEFAULT = [
 ].map(([motivo,importe]) => ({id:uid(), motivo, importe}));
 
 const POSICIONES_JUGADOR = ['Portero','Defensa central','Lateral derecho','Lateral izquierdo','Mediocentro defensivo','Mediocentro','Mediapunta','Extremo derecho','Extremo izquierdo','Delantero centro'];
+const DORSALES_PORTERO = [1, 13, 23];
 
 const ROSTER_NOMBRES_DEFAULT = [
   [1,'Marcelo'],[2,'Alvaro L / Polioli'],[3,'Samuel'],[4,'Pablo'],[5,'Blasco'],
@@ -693,7 +694,7 @@ async function init(){
     state.partidos = migrarConvocatoria(partidos);
   } else {
     state.partidos = PARTIDOS_CALENDARIO_DEFAULT.map(([jornada, fecha, rival, local]) => {
-      const p = {id:uid(), rival, fecha, hora:'', duracion: state.config.duracionPartido, jornada, local, convocatoria:{}};
+      const p = {id:uid(), rival, fecha, hora:'', duracion: state.config.duracionPartido, jornada, local, competicion:'Liga', convocatoria:{}};
       state.jugadores.forEach(j => { p.convocatoria[j.id] = {convocado:false, condicion:null, minutos:0}; });
       return p;
     });
@@ -906,7 +907,7 @@ function renderJugadoresTab(){
   list.innerHTML = sorted.map(j => `
     <div class="list-row">
       ${avatarHtml(j)}
-      <span class="list-name">${escapeHtml(formatName(j.nombre))}${j.posicion?`<br><span class="muted small">${escapeHtml(j.posicion)}</span>`:''}</span>
+      <span class="list-name">${escapeHtml(formatName(j.nombre))}${j.filial?' <span class="muted small">· Filial Cadete B</span>':''}${j.posicion?`<br><span class="muted small">${escapeHtml(j.posicion)}</span>`:''}</span>
       <div class="row-actions">
         <button class="icon-btn" onclick="abrirModalJugador('${j.id}')">✎</button>
         <button class="icon-btn danger" onclick="borrarJugador('${j.id}')">🗑</button>
@@ -924,16 +925,34 @@ function abrirModalJugador(id){
       ${jugador&&jugador.foto?`<span class="dorsal-badge large"><img id="mJugFotoImg" src="${jugador.foto}"></span>`:`<span class="dorsal-badge large" id="mJugFotoImg">${jugador?jugador.dorsal:'?'}</span>`}
       <label style="flex:1;margin-bottom:0">Foto (opcional)<input type="file" accept="image/*" id="mJugFoto" onchange="previewFotoJugador(event)"></label>
     </div>
-    <label>Dorsal<input type="number" id="mJugDorsal" value="${jugador ? jugador.dorsal : ''}" min="1"></label>
+    <label>Dorsal<input type="number" id="mJugDorsal" value="${jugador ? jugador.dorsal : ''}" min="1" oninput="actualizarPosicionPorDorsal()"></label>
     <label>Nombre<input type="text" id="mJugNombre" value="${jugador ? escapeHtml(jugador.nombre) : ''}"></label>
-    <label>Posición (opcional)<select id="mJugPosicion">
+    <label>Posición ${DORSALES_PORTERO.includes(jugador?jugador.dorsal:null)?'':'(opcional)'}<select id="mJugPosicion" ${DORSALES_PORTERO.includes(jugador?jugador.dorsal:null)?'disabled':''}>
       <option value="">Sin definir</option>
-      ${POSICIONES_JUGADOR.map(p => `<option ${jugador&&jugador.posicion===p?'selected':''}>${p}</option>`).join('')}
+      ${POSICIONES_JUGADOR.map(p => `<option ${(jugador&&jugador.posicion===p) || (DORSALES_PORTERO.includes(jugador?jugador.dorsal:null) && p==='Portero') ?'selected':''}>${p}</option>`).join('')}
     </select></label>
+    <p class="hint" id="mJugPorteroHint" style="display:${DORSALES_PORTERO.includes(jugador?jugador.dorsal:null)?'block':'none'}">Los dorsales ${DORSALES_PORTERO.join(', ')} son obligatoriamente de portero.</p>
+    <label style="display:flex;align-items:center;gap:8px;flex-direction:row">
+      <input type="checkbox" id="mJugFilial" ${jugador&&jugador.filial?'checked':''} style="width:auto;margin:0">
+      <span style="margin:0">Jugador filial (Cadete B) — no se le aplican multas</span>
+    </label>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="guardarJugador('${id||''}')">Guardar</button>
     </div>`);
+}
+function actualizarPosicionPorDorsal(){
+  const dorsal = parseInt(document.getElementById('mJugDorsal').value, 10);
+  const sel = document.getElementById('mJugPosicion');
+  const hint = document.getElementById('mJugPorteroHint');
+  if(DORSALES_PORTERO.includes(dorsal)){
+    sel.value = 'Portero';
+    sel.disabled = true;
+    hint.style.display = 'block';
+  } else {
+    sel.disabled = false;
+    hint.style.display = 'none';
+  }
 }
 async function previewFotoJugador(e){
   const file = e.target.files[0];
@@ -949,16 +968,17 @@ async function previewFotoJugador(e){
 async function guardarJugador(id){
   const dorsal = parseInt(document.getElementById('mJugDorsal').value, 10);
   const nombre = document.getElementById('mJugNombre').value.trim();
-  const posicion = document.getElementById('mJugPosicion').value;
+  const posicion = DORSALES_PORTERO.includes(dorsal) ? 'Portero' : document.getElementById('mJugPosicion').value;
+  const filial = document.getElementById('mJugFilial').checked;
   if(!nombre || !dorsal){ showToast('Rellena dorsal y nombre.'); return; }
   let jugadorFinal;
   if(id){
     const j = state.jugadores.find(x => x.id === id);
-    j.dorsal = dorsal; j.nombre = nombre; j.posicion = posicion || null;
+    j.dorsal = dorsal; j.nombre = nombre; j.posicion = posicion || null; j.filial = filial;
     if(fotoJugadorPendiente !== undefined) j.foto = fotoJugadorPendiente;
     jugadorFinal = j;
   } else {
-    jugadorFinal = {id:uid(), dorsal, nombre, posicion: posicion || null, foto: fotoJugadorPendiente || null};
+    jugadorFinal = {id:uid(), dorsal, nombre, posicion: posicion || null, filial, foto: fotoJugadorPendiente || null};
     state.jugadores.push(jugadorFinal);
   }
   await guardarColeccion(STORAGE_KEYS.jugadores, {tipo:'upsert', item: jugadorFinal});
@@ -1100,11 +1120,12 @@ function renderMinutosTab(){
       const localTxt = p.local===true ? ' · Local' : (p.local===false ? ' · Visitante' : '');
       const resultadoTxt = p.resultado ? ` · ${escapeHtml(p.resultado)}` : '';
       const formacionTxt = p.formacion ? ` · ${escapeHtml(p.formacion)}` : '';
+      const amistosoTxt = p.competicion === 'Amistoso' ? ' · Amistoso (no cuenta en estadísticas)' : '';
       return `
       <div class="card partido-card">
         <div class="partido-info">
           <strong>${jornadaTxt}${escapeHtml(p.rival || 'Rival por definir')}${resultadoTxt}</strong>
-          <span class="muted">${formatDateShort(p.fecha)} · ${p.duracion} min · ${nConv} convocados${localTxt}${formacionTxt}</span>
+          <span class="muted">${formatDateShort(p.fecha)} · ${p.duracion} min · ${nConv} convocados${localTxt}${formacionTxt}${amistosoTxt}</span>
         </div>
         <div class="row-actions">
           <button class="btn-small" onclick="abrirModalConvocatoria('${p.id}')">Convocatoria</button>
@@ -1142,7 +1163,11 @@ function abrirModalPartido(id){
       <option value="" ${!p||p.local==null?'selected':''}>Sin definir</option>
     </select></label>
     <div class="form-grid">
-      <label>Competición (opcional)<input type="text" id="mPartCompeticion" placeholder="Liga, Copa, Amistoso..." value="${p?escapeHtml(p.competicion||''):''}"></label>
+      <label>Competición<select id="mPartCompeticion">
+        <option value="Liga" ${!p||p.competicion==='Liga'?'selected':''}>Liga</option>
+        <option value="Copa" ${p&&p.competicion==='Copa'?'selected':''}>Copa</option>
+        <option value="Amistoso" ${p&&p.competicion==='Amistoso'?'selected':''}>Amistoso</option>
+      </select></label>
       <label>Formación (opcional)<select id="mPartFormacion">
         <option value="">Sin definir</option>
         ${formaciones.map(f => `<option ${p&&p.formacion===f?'selected':''}>${f}</option>`).join('')}
@@ -1299,24 +1324,28 @@ async function guardarConvocatoria(partidoId){
   showToast('Convocatoria guardada.');
 }
 
+function partidosParaEstadisticas(){
+  return state.partidos.filter(p => p.competicion !== 'Amistoso');
+}
 function computeStats(){
+  const partidosCuentan = partidosParaEstadisticas();
   return state.jugadores.map(j => {
     let minutos=0, titular=0, suplente=0, noConvocado=0;
-    state.partidos.forEach(p => {
+    partidosCuentan.forEach(p => {
       const e = (p.convocatoria||{})[j.id];
       if(!e || !e.convocado){ noConvocado++; return; }
       if(e.condicion === 'titular') titular++;
       else if(e.condicion === 'suplente') suplente++;
       minutos += Number(e.minutos)||0;
     });
-    const partidosConvocado = state.partidos.filter(p => (p.convocatoria||{})[j.id]?.convocado).length;
+    const partidosConvocado = partidosCuentan.filter(p => (p.convocatoria||{})[j.id]?.convocado).length;
     const media = partidosConvocado ? minutos/partidosConvocado : 0;
     return {jugador:j, minutos, titular, suplente, noConvocado, partidosConvocado, media};
   });
 }
 function renderStatsTable(){
   const stats = computeStats();
-  const totalMinutosPosibles = state.partidos.reduce((s,p) => s + (Number(p.duracion)||0),0) || 1;
+  const totalMinutosPosibles = partidosParaEstadisticas().reduce((s,p) => s + (Number(p.duracion)||0),0) || 1;
   const key = currentSort.key, dir = currentSort.dir;
   const rows = stats.map(s => ({...s, pct:(s.minutos/totalMinutosPosibles)*100})).sort((a,b) => {
     let va, vb;
@@ -1380,7 +1409,7 @@ function renderCharts(){
 function renderEvolucionChart(){
   const sel = document.getElementById('evolucionSelect');
   const jugadorId = sel.value;
-  const partidosOrdenados = [...state.partidos].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+  const partidosOrdenados = partidosParaEstadisticas().sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
   const labels = partidosOrdenados.map(p => `${formatDateShort(p.fecha)} ${p.rival?('vs '+p.rival):''}`);
   const data = partidosOrdenados.map(p => { const e=(p.convocatoria||{})[jugadorId]; return e?(Number(e.minutos)||0):0; });
   if(charts.evolucion) charts.evolucion.destroy();
@@ -1455,7 +1484,7 @@ async function cambiarFormacionAlineacion(){
   document.getElementById('pitchContainer').innerHTML = renderPitchHTML(partido.formacion, partido.alineacion, 'abrirSelectorPosicion');
 }
 const SLOT_A_POSICION = {POR:'Portero', LI:'Lateral izquierdo', LD:'Lateral derecho', DFC:'Defensa central', MC:'Mediocentro', MCD:'Mediocentro defensivo', MP:'Mediapunta', EI:'Extremo izquierdo', ED:'Extremo derecho', DC:'Delantero centro'};
-function abrirSelectorPosicion(slotId){
+function abrirSelectorPosicion(slotId, mostrarTodos){
   const partido = state.partidos.find(p => p.id === window.__alinPartidoId);
   const layout = FORMACIONES_POSICIONES[partido.formacion];
   const slot = layout.find(s => s.id === slotId);
@@ -1463,13 +1492,16 @@ function abrirSelectorPosicion(slotId){
   const convocados = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).sort((a,b)=>a.dorsal-b.dorsal);
   const usados = new Set(Object.entries(partido.alineacion||{}).filter(([k]) => k!==slotId).map(([,v]) => v));
   let libres = convocados.filter(j => !usados.has(j.id));
-  if(posicionSlot) libres = [...libres].sort((a,b) => (b.posicion===posicionSlot) - (a.posicion===posicionSlot));
+  const todosLibres = libres;
+  if(posicionSlot && !mostrarTodos) libres = libres.filter(j => j.posicion === posicionSlot);
+  const hayMasSinFiltrar = posicionSlot && !mostrarTodos && todosLibres.length > libres.length;
   openModal(`
     <h3>Posición: ${slot.label}</h3>
     <div class="list-simple">
       ${partido.alineacion[slotId] ? `<button type="button" class="btn-secondary" style="width:100%" onclick="asignarPosicion('${slotId}', '')">Quitar de esta posición</button>` : ''}
-      ${libres.map(j => `<button type="button" class="list-row" style="width:100%;border:none;text-align:left;cursor:pointer" onclick="asignarPosicion('${slotId}', '${j.id}')">${avatarHtml(j,'small')}<span class="list-name">${escapeHtml(formatName(j.nombre))}${j.posicion===posicionSlot?' <span class="muted small">(su posición)</span>':''}</span></button>`).join('') || '<p class="hint">No quedan convocados libres para esta posición.</p>'}
+      ${libres.map(j => `<button type="button" class="list-row" style="width:100%;border:none;text-align:left;cursor:pointer" onclick="asignarPosicion('${slotId}', '${j.id}')">${avatarHtml(j,'small')}<span class="list-name">${escapeHtml(formatName(j.nombre))}</span></button>`).join('') || `<p class="hint">Ningún convocado libre tiene la posición ${escapeHtml(posicionSlot||slot.label)}.</p>`}
     </div>
+    ${hayMasSinFiltrar || (posicionSlot && !mostrarTodos && libres.length===0 && todosLibres.length>0) ? `<button type="button" class="btn-ghost" style="width:100%;margin-top:8px" onclick="abrirSelectorPosicion('${slotId}', true)">Ver todos los convocados libres</button>` : ''}
     <div class="modal-actions"><button class="btn-secondary" onclick="abrirModalAlineacion('${window.__alinPartidoId}')">Volver</button></div>`);
 }
 async function asignarPosicion(slotId, jugadorId){
@@ -1694,7 +1726,7 @@ async function generarConvocatoriaPDF(partidoId){
 function renderMultasTab(){
   const selJ = document.getElementById('multaJugador');
   const prevJ = selJ.value;
-  selJ.innerHTML = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal).map(j => `<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('');
+  selJ.innerHTML = [...state.jugadores].filter(j => !j.filial).sort((a,b)=>a.dorsal-b.dorsal).map(j => `<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('');
   if(prevJ && state.jugadores.find(j=>j.id===prevJ)) selJ.value = prevJ;
 
   const selM = document.getElementById('multaMotivo');
@@ -1779,7 +1811,7 @@ function renderMultasLog(){
   }).join('');
 }
 function renderMultasResumen(){
-  const rows = state.jugadores.map(j => {
+  const rows = state.jugadores.filter(j => !j.filial).map(j => {
     const propias = state.multas.filter(m => m.jugadorId === j.id);
     const total = propias.reduce((s,m) => s + importeActual(m), 0);
     const pagado = propias.filter(m=>m.pagada).reduce((s,m)=> s + (m.importeFinal!=null?m.importeFinal:m.importeBase), 0);
