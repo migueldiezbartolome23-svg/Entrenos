@@ -205,8 +205,8 @@ canvas{max-width:100%;}
       </div>
 
       <div class="conv-toolbar">
-        <button type="button" class="btn-ghost active-ghost" id="viewListBtn" onclick="setMinutosView('lista')">Lista</button>
-        <button type="button" class="btn-ghost" id="viewCalBtn" onclick="setMinutosView('calendario')">Calendario</button>
+        <button type="button" class="btn-ghost" id="viewListBtn" onclick="setMinutosView('lista')">Lista</button>
+        <button type="button" class="btn-ghost active-ghost" id="viewCalBtn" onclick="setMinutosView('calendario')">Calendario</button>
       </div>
 
       <div id="minutosEmpty" class="empty-state" style="display:none">
@@ -214,9 +214,9 @@ canvas{max-width:100%;}
         <button class="btn-primary" onclick="abrirModalPartido()">Añadir el primer partido</button>
       </div>
 
-      <div id="partidosList"></div>
+      <div id="partidosList" style="display:none"></div>
 
-      <div id="calendarioView" style="display:none">
+      <div id="calendarioView" style="display:block">
         <div class="card">
           <div class="cal-header">
             <button class="icon-btn" onclick="cambiarMes(-1)">‹</button>
@@ -320,19 +320,32 @@ canvas{max-width:100%;}
       <div id="jugadoresList" class="list-simple"></div>
     </section>
 
-    <!-- TAB ENTRENAMIENTOS (ejercicios + test físico) -->
+    <!-- TAB ENTRENAMIENTOS (ejercicios + tests físicos) -->
     <section id="tab-entrenamientos" class="tab-panel">
       <div class="section-header"><h2>Entrenamientos</h2></div>
 
       <div class="card">
         <h3>Test de Course Navette</h3>
         <p class="hint">Registra cada fecha en la que hagáis el test y anota el resultado de cada jugador para ver su progresión a lo largo de la temporada.</p>
-        <button class="btn-primary" onclick="abrirModalTestFecha()" style="width:100%;margin-bottom:10px">+ Nueva fecha de test</button>
-        <div id="testFechasList" class="list-simple"></div>
-        <div class="table-scroll" id="testFisicoWrap" style="display:none">
+        <button class="btn-primary" onclick="abrirModalTestFecha('course_navette')" style="width:100%;margin-bottom:10px">+ Nueva fecha de test</button>
+        <div id="testFechasList_course_navette" class="list-simple"></div>
+        <div class="table-scroll" id="testFisicoWrap_course_navette" style="display:none">
           <table>
-            <thead><tr id="testFisicoHead"></tr></thead>
-            <tbody id="testFisicoBody"></tbody>
+            <thead><tr id="testFisicoHead_course_navette"></tr></thead>
+            <tbody id="testFisicoBody_course_navette"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Test de Cooper</h3>
+        <p class="hint">Igual que el anterior, pero para el test de Cooper (distancia recorrida en 12 minutos).</p>
+        <button class="btn-primary" onclick="abrirModalTestFecha('cooper')" style="width:100%;margin-bottom:10px">+ Nueva fecha de test</button>
+        <div id="testFechasList_cooper" class="list-simple"></div>
+        <div class="table-scroll" id="testFisicoWrap_cooper" style="display:none">
+          <table>
+            <thead><tr id="testFisicoHead_cooper"></tr></thead>
+            <tbody id="testFisicoBody_cooper"></tbody>
           </table>
         </div>
       </div>
@@ -437,7 +450,7 @@ try{
   firebase.initializeApp(FIREBASE_CONFIG);
   fbDb = firebase.database();
 }catch(e){ console.error('Error inicializando Firebase', e); }
-const STORAGE_KEYS = { roster:'roster', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas', ejercicios:'ejercicios', tests:'tests_fisicos' };
+const STORAGE_KEYS = { jugadores:'jugadores', entrenadores:'entrenadores', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas', ejercicios:'ejercicios', tests:'tests_fisicos' };
 
 const CATALOGO_DEFAULT = [
   ['Retraso injustificado en entrenamiento',1.00],
@@ -466,6 +479,8 @@ const CATALOGO_DEFAULT = [
   ['Falta de respeto',5.00],
   ['Uso general no autorizado del móvil',1.00]
 ].map(([motivo,importe]) => ({id:uid(), motivo, importe}));
+
+const POSICIONES_JUGADOR = ['Portero','Defensa central','Lateral derecho','Lateral izquierdo','Mediocentro defensivo','Mediocentro','Mediapunta','Extremo derecho','Extremo izquierdo','Delantero centro'];
 
 const ROSTER_NOMBRES_DEFAULT = [
   [1,'Marcelo'],[2,'Alvaro L / Polioli'],[3,'Samuel'],[4,'Pablo'],[5,'Blasco'],
@@ -557,7 +572,7 @@ const FORMACIONES_POSICIONES = {
 let state = { jugadores:[], entrenadores:[], config:{...CONFIG_DEFAULT}, partidos:[], multas:[], catalogo:[], ejercicios:[], tests:[] };
 let charts = { minutos:null, estados:null, evolucion:null };
 let currentSort = { key:'minutos', dir:'desc' };
-let minutosView = 'lista';
+let minutosView = 'calendario';
 let calFecha = new Date();
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
@@ -586,6 +601,50 @@ async function saveKey(key, value){
 }
 function normalizarArray(v){ return Array.isArray(v) ? v : Object.values(v || {}); }
 
+/* Guarda/borra UN elemento de una colección. En vez de sobrescribir toda la colección remota
+   con la copia local (que podría estar desfasada si hay otro dispositivo que acaba de añadir
+   algo), primero trae la versión más reciente de Firebase, aplica ahí el cambio concreto, y
+   guarda esa versión fusionada — así nunca se pisa una novedad de otro dispositivo. */
+async function guardarColeccion(key, cambio){
+  const arrLocal = getArrayForKey(key);
+  try{ localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(arrLocal)); }catch(e){}
+  if(!fbDb) return;
+  try{
+    const snap = await fbDb.ref(key).once('value');
+    let remoto = normalizarArray(snap.val());
+    if(cambio.tipo === 'borrar'){
+      remoto = remoto.filter(it => it.id !== cambio.id);
+    } else {
+      const idx = remoto.findIndex(it => it.id === cambio.item.id);
+      if(idx >= 0) remoto[idx] = cambio.item; else remoto.push(cambio.item);
+    }
+    await fbDb.ref(key).set(remoto);
+    setArrayForKey(key, remoto);
+  }catch(e){
+    console.error('Error sincronizando', key, e);
+    showToast('Guardado en este dispositivo, pero no se pudo sincronizar. Revisa tu conexión.');
+  }
+}
+function getArrayForKey(key){
+  if(key === STORAGE_KEYS.jugadores) return state.jugadores;
+  if(key === STORAGE_KEYS.entrenadores) return state.entrenadores;
+  if(key === STORAGE_KEYS.partidos) return state.partidos;
+  if(key === STORAGE_KEYS.multas) return state.multas;
+  if(key === STORAGE_KEYS.catalogo) return state.catalogo;
+  if(key === STORAGE_KEYS.ejercicios) return state.ejercicios;
+  if(key === STORAGE_KEYS.tests) return state.tests;
+  return [];
+}
+function setArrayForKey(key, arr){
+  if(key === STORAGE_KEYS.jugadores){ state.jugadores = arr; renderJugadoresTab(); renderMinutosTab(); renderMultasTab(); renderEntrenamientosTab(); }
+  else if(key === STORAGE_KEYS.entrenadores){ state.entrenadores = arr; renderEntrenadoresTab(); }
+  else if(key === STORAGE_KEYS.partidos){ state.partidos = migrarConvocatoria(arr); renderMinutosTab(); }
+  else if(key === STORAGE_KEYS.multas){ state.multas = arr; renderMultasTab(); }
+  else if(key === STORAGE_KEYS.catalogo){ state.catalogo = arr; renderMultasTab(); renderCatalogoList(); }
+  else if(key === STORAGE_KEYS.ejercicios){ state.ejercicios = arr; renderEntrenamientosTab(); }
+  else if(key === STORAGE_KEYS.tests){ state.tests = arr; renderEntrenamientosTab(); }
+}
+
 function migrarConvocatoria(partidos){
   (partidos||[]).forEach(p => {
     if(!p.convocatoria) return;
@@ -601,8 +660,10 @@ function migrarConvocatoria(partidos){
 }
 
 async function init(){
-  const [roster, config, partidos, multas, catalogo, ejercicios, tests] = await Promise.all([
-    loadKey(STORAGE_KEYS.roster, null),
+  const [jugadoresLocal, entrenadoresLocal, rosterViejo, config, partidos, multas, catalogo, ejercicios, tests] = await Promise.all([
+    loadKey(STORAGE_KEYS.jugadores, null),
+    loadKey(STORAGE_KEYS.entrenadores, null),
+    loadKey('roster', null),
     loadKey(STORAGE_KEYS.config, null),
     loadKey(STORAGE_KEYS.partidos, []),
     loadKey(STORAGE_KEYS.multas, []),
@@ -611,14 +672,18 @@ async function init(){
     loadKey(STORAGE_KEYS.tests, [])
   ]);
 
-  if(roster){
-    state.jugadores = roster.jugadores || [];
-    state.entrenadores = roster.entrenadores || [];
+  if(jugadoresLocal){
+    state.jugadores = jugadoresLocal;
+    state.entrenadores = entrenadoresLocal || [];
+  } else if(rosterViejo){
+    state.jugadores = rosterViejo.jugadores || [];
+    state.entrenadores = rosterViejo.entrenadores || [];
   } else {
     state.jugadores = ROSTER_NOMBRES_DEFAULT.map(([dorsal,nombre]) => ({id:uid(), dorsal, nombre}));
     state.entrenadores = [];
-    await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
   }
+  await saveKey(STORAGE_KEYS.jugadores, state.jugadores);
+  await saveKey(STORAGE_KEYS.entrenadores, state.entrenadores);
 
   state.config = config || {...CONFIG_DEFAULT};
   if(!state.config.diasEntreno) state.config.diasEntreno = [1,3,5];
@@ -651,12 +716,23 @@ async function init(){
     try{
       const snap = await fbDb.ref('/').once('value');
       const remoto = snap.val();
-      if(remoto && Object.keys(remoto).length){
+      if(remoto && (remoto.roster || remoto[STORAGE_KEYS.jugadores])){
+        if(!remoto[STORAGE_KEYS.jugadores] && remoto.roster){
+          // migración de la estructura antigua a la nueva, una sola vez
+          await fbDb.ref(STORAGE_KEYS.jugadores).set(remoto.roster.jugadores || []);
+          await fbDb.ref(STORAGE_KEYS.entrenadores).set(remoto.roster.entrenadores || []);
+          remoto[STORAGE_KEYS.jugadores] = remoto.roster.jugadores || [];
+          remoto[STORAGE_KEYS.entrenadores] = remoto.roster.entrenadores || [];
+        }
+        aplicarDatosRemotos(remoto);
+        renderAll();
+      } else if(remoto && Object.keys(remoto).length){
         aplicarDatosRemotos(remoto);
         renderAll();
       } else {
         await Promise.all([
-          fbDb.ref(STORAGE_KEYS.roster).set({jugadores:state.jugadores, entrenadores:state.entrenadores}),
+          fbDb.ref(STORAGE_KEYS.jugadores).set(state.jugadores),
+          fbDb.ref(STORAGE_KEYS.entrenadores).set(state.entrenadores),
           fbDb.ref(STORAGE_KEYS.config).set(state.config),
           fbDb.ref(STORAGE_KEYS.partidos).set(state.partidos),
           fbDb.ref(STORAGE_KEYS.multas).set(state.multas),
@@ -674,26 +750,28 @@ async function init(){
 }
 
 function aplicarDatosRemotos(remoto){
-  if(remoto[STORAGE_KEYS.roster]){
-    state.jugadores = remoto[STORAGE_KEYS.roster].jugadores || [];
-    state.entrenadores = remoto[STORAGE_KEYS.roster].entrenadores || [];
-  }
+  if(remoto[STORAGE_KEYS.jugadores]) state.jugadores = normalizarArray(remoto[STORAGE_KEYS.jugadores]);
+  if(remoto[STORAGE_KEYS.entrenadores]) state.entrenadores = normalizarArray(remoto[STORAGE_KEYS.entrenadores]);
   if(remoto[STORAGE_KEYS.config]){
     state.config = remoto[STORAGE_KEYS.config];
     if(!state.config.diasEntreno) state.config.diasEntreno = [1,3,5];
   }
   if(remoto[STORAGE_KEYS.partidos]) state.partidos = migrarConvocatoria(normalizarArray(remoto[STORAGE_KEYS.partidos]));
-  state.multas = remoto[STORAGE_KEYS.multas] ? normalizarArray(remoto[STORAGE_KEYS.multas]) : [];
+  if(remoto[STORAGE_KEYS.multas]) state.multas = normalizarArray(remoto[STORAGE_KEYS.multas]);
   if(remoto[STORAGE_KEYS.catalogo]) state.catalogo = normalizarArray(remoto[STORAGE_KEYS.catalogo]);
-  state.ejercicios = remoto[STORAGE_KEYS.ejercicios] ? normalizarArray(remoto[STORAGE_KEYS.ejercicios]) : [];
-  state.tests = remoto[STORAGE_KEYS.tests] ? normalizarArray(remoto[STORAGE_KEYS.tests]) : [];
+  if(remoto[STORAGE_KEYS.ejercicios]) state.ejercicios = normalizarArray(remoto[STORAGE_KEYS.ejercicios]);
+  if(remoto[STORAGE_KEYS.tests]) state.tests = normalizarArray(remoto[STORAGE_KEYS.tests]);
 }
 
 function activarSincronizacionEnVivo(){
-  fbDb.ref(STORAGE_KEYS.roster).on('value', snap => {
+  fbDb.ref(STORAGE_KEYS.jugadores).on('value', snap => {
     const v = snap.val(); if(!v) return;
-    state.jugadores = v.jugadores || []; state.entrenadores = v.entrenadores || [];
-    renderJugadoresTab(); renderEntrenadoresTab(); renderMinutosTab(); renderMultasTab(); renderEntrenamientosTab();
+    state.jugadores = normalizarArray(v);
+    renderJugadoresTab(); renderMinutosTab(); renderMultasTab(); renderEntrenamientosTab();
+  });
+  fbDb.ref(STORAGE_KEYS.entrenadores).on('value', snap => {
+    state.entrenadores = snap.val() ? normalizarArray(snap.val()) : [];
+    renderEntrenadoresTab();
   });
   fbDb.ref(STORAGE_KEYS.config).on('value', snap => {
     const v = snap.val(); if(!v) return;
@@ -722,6 +800,18 @@ function activarSincronizacionEnVivo(){
     state.tests = snap.val() ? normalizarArray(snap.val()) : [];
     renderEntrenamientosTab();
   });
+
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') refrescarDesdeFirebase();
+  });
+}
+async function refrescarDesdeFirebase(){
+  if(!fbDb) return;
+  try{
+    const snap = await fbDb.ref('/').once('value');
+    const remoto = snap.val();
+    if(remoto){ aplicarDatosRemotos(remoto); renderAll(); }
+  }catch(e){ console.error('Error refrescando desde Firebase', e); }
 }
 
 function renderAll(){
@@ -816,7 +906,7 @@ function renderJugadoresTab(){
   list.innerHTML = sorted.map(j => `
     <div class="list-row">
       ${avatarHtml(j)}
-      <span class="list-name">${escapeHtml(formatName(j.nombre))}</span>
+      <span class="list-name">${escapeHtml(formatName(j.nombre))}${j.posicion?`<br><span class="muted small">${escapeHtml(j.posicion)}</span>`:''}</span>
       <div class="row-actions">
         <button class="icon-btn" onclick="abrirModalJugador('${j.id}')">✎</button>
         <button class="icon-btn danger" onclick="borrarJugador('${j.id}')">🗑</button>
@@ -836,6 +926,10 @@ function abrirModalJugador(id){
     </div>
     <label>Dorsal<input type="number" id="mJugDorsal" value="${jugador ? jugador.dorsal : ''}" min="1"></label>
     <label>Nombre<input type="text" id="mJugNombre" value="${jugador ? escapeHtml(jugador.nombre) : ''}"></label>
+    <label>Posición (opcional)<select id="mJugPosicion">
+      <option value="">Sin definir</option>
+      ${POSICIONES_JUGADOR.map(p => `<option ${jugador&&jugador.posicion===p?'selected':''}>${p}</option>`).join('')}
+    </select></label>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn-primary" onclick="guardarJugador('${id||''}')">Guardar</button>
@@ -855,15 +949,19 @@ async function previewFotoJugador(e){
 async function guardarJugador(id){
   const dorsal = parseInt(document.getElementById('mJugDorsal').value, 10);
   const nombre = document.getElementById('mJugNombre').value.trim();
+  const posicion = document.getElementById('mJugPosicion').value;
   if(!nombre || !dorsal){ showToast('Rellena dorsal y nombre.'); return; }
+  let jugadorFinal;
   if(id){
     const j = state.jugadores.find(x => x.id === id);
-    j.dorsal = dorsal; j.nombre = nombre;
+    j.dorsal = dorsal; j.nombre = nombre; j.posicion = posicion || null;
     if(fotoJugadorPendiente !== undefined) j.foto = fotoJugadorPendiente;
+    jugadorFinal = j;
   } else {
-    state.jugadores.push({id:uid(), dorsal, nombre, foto: fotoJugadorPendiente || null});
+    jugadorFinal = {id:uid(), dorsal, nombre, posicion: posicion || null, foto: fotoJugadorPendiente || null};
+    state.jugadores.push(jugadorFinal);
   }
-  await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
+  await guardarColeccion(STORAGE_KEYS.jugadores, {tipo:'upsert', item: jugadorFinal});
   closeModal();
   renderJugadoresTab(); renderMinutosTab(); renderMultasTab(); renderEntrenamientosTab();
   showToast('Jugador guardado.');
@@ -872,14 +970,13 @@ async function borrarJugador(id){
   if(!confirm('¿Seguro que quieres borrar este jugador? También se perderán sus datos de minutos, multas y tests asociados.')) return;
   state.jugadores = state.jugadores.filter(j => j.id !== id);
   state.partidos.forEach(p => { if(p.convocatoria) delete p.convocatoria[id]; });
+  const multasBorradas = state.multas.filter(m => m.jugadorId === id);
   state.multas = state.multas.filter(m => m.jugadorId !== id);
   state.tests.forEach(t => { if(t.resultados) delete t.resultados[id]; });
-  await Promise.all([
-    saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores}),
-    saveKey(STORAGE_KEYS.partidos, state.partidos),
-    saveKey(STORAGE_KEYS.multas, state.multas),
-    saveKey(STORAGE_KEYS.tests, state.tests)
-  ]);
+  await guardarColeccion(STORAGE_KEYS.jugadores, {tipo:'borrar', id});
+  await Promise.all(state.partidos.map(p => guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item:p})));
+  await Promise.all(multasBorradas.map(m => guardarColeccion(STORAGE_KEYS.multas, {tipo:'borrar', id:m.id})));
+  await Promise.all(state.tests.map(t => guardarColeccion(STORAGE_KEYS.tests, {tipo:'upsert', item:t})));
   renderAll();
   showToast('Jugador eliminado.');
 }
@@ -916,20 +1013,23 @@ async function guardarEntrenador(id){
   const nombre = document.getElementById('mEntNombre').value.trim();
   const rol = document.getElementById('mEntRol').value;
   if(!nombre){ showToast('Escribe un nombre.'); return; }
+  let entFinal;
   if(id){
     const e = state.entrenadores.find(x => x.id === id);
     e.nombre = nombre; e.rol = rol;
+    entFinal = e;
   } else {
-    state.entrenadores.push({id:uid(), nombre, rol});
+    entFinal = {id:uid(), nombre, rol};
+    state.entrenadores.push(entFinal);
   }
-  await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
+  await guardarColeccion(STORAGE_KEYS.entrenadores, {tipo:'upsert', item: entFinal});
   closeModal(); renderEntrenadoresTab();
   showToast('Entrenador guardado.');
 }
 async function borrarEntrenador(id){
   if(!confirm('¿Borrar este entrenador?')) return;
   state.entrenadores = state.entrenadores.filter(e => e.id !== id);
-  await saveKey(STORAGE_KEYS.roster, {jugadores:state.jugadores, entrenadores:state.entrenadores});
+  await guardarColeccion(STORAGE_KEYS.entrenadores, {tipo:'borrar', id});
   renderEntrenadoresTab();
   showToast('Entrenador eliminado.');
 }
@@ -993,7 +1093,7 @@ function renderMinutosTab(){
     emptyEl.style.display = 'none';
     statsCard.style.display = 'block'; c1.style.display='block'; c2.style.display='block'; c3.style.display='block';
 
-    const sorted = [...state.partidos].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+    const sorted = [...state.partidos].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
     listEl.innerHTML = sorted.map(p => {
       const nConv = Object.values(p.convocatoria||{}).filter(e => e.convocado).length;
       const jornadaTxt = p.jornada ? `J${p.jornada} · ` : '';
@@ -1067,20 +1167,21 @@ async function guardarPartido(id){
   const formacion = document.getElementById('mPartFormacion').value;
   const resultado = document.getElementById('mPartResultado').value.trim();
   if(!fecha){ showToast('Indica la fecha del partido.'); return; }
+  let partidoFinal;
   if(id){
     const p = state.partidos.find(x => x.id === id);
     Object.assign(p, {rival, fecha, hora, duracion, jornada, local, competicion, formacion, resultado});
+    partidoFinal = p;
   } else {
-    const nuevo = {id:uid(), rival, fecha, hora, duracion, jornada, local, competicion, formacion, resultado, imagenConvocatoria:null, convocatoria:{}};
-    state.jugadores.forEach(j => { nuevo.convocatoria[j.id] = {convocado:false, condicion:null, minutos:0}; });
-    state.partidos.push(nuevo);
+    partidoFinal = {id:uid(), rival, fecha, hora, duracion, jornada, local, competicion, formacion, resultado, imagenConvocatoria:null, convocatoria:{}};
+    state.jugadores.forEach(j => { partidoFinal.convocatoria[j.id] = {convocado:false, condicion:null, minutos:0}; });
+    state.partidos.push(partidoFinal);
   }
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partidoFinal});
   closeModal();
   renderMinutosTab();
   if(!id){
-    const ultimo = state.partidos[state.partidos.length-1];
-    abrirModalConvocatoria(ultimo.id);
+    abrirModalConvocatoria(partidoFinal.id);
   } else {
     showToast('Partido actualizado.');
   }
@@ -1088,7 +1189,7 @@ async function guardarPartido(id){
 async function borrarPartido(id){
   if(!confirm('¿Borrar este partido y todos sus datos de convocatoria/minutos?')) return;
   state.partidos = state.partidos.filter(p => p.id !== id);
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'borrar', id});
   renderMinutosTab();
   showToast('Partido eliminado.');
 }
@@ -1192,7 +1293,7 @@ async function guardarConvocatoria(partidoId){
     partido.convocatoria[jid] = {convocado, condicion, minutos};
   });
   if(convocatoriaImagenPendiente !== undefined) partido.imagenConvocatoria = convocatoriaImagenPendiente;
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
   closeModal();
   renderMinutosTab();
   showToast('Convocatoria guardada.');
@@ -1348,23 +1449,26 @@ async function cambiarFormacionAlineacion(){
   if(nueva !== partido.formacion){
     partido.formacion = nueva;
     partido.alineacion = {};
-    await saveKey(STORAGE_KEYS.partidos, state.partidos);
+    await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
     renderMinutosTab();
   }
   document.getElementById('pitchContainer').innerHTML = renderPitchHTML(partido.formacion, partido.alineacion, 'abrirSelectorPosicion');
 }
+const SLOT_A_POSICION = {POR:'Portero', LI:'Lateral izquierdo', LD:'Lateral derecho', DFC:'Defensa central', MC:'Mediocentro', MCD:'Mediocentro defensivo', MP:'Mediapunta', EI:'Extremo izquierdo', ED:'Extremo derecho', DC:'Delantero centro'};
 function abrirSelectorPosicion(slotId){
   const partido = state.partidos.find(p => p.id === window.__alinPartidoId);
   const layout = FORMACIONES_POSICIONES[partido.formacion];
   const slot = layout.find(s => s.id === slotId);
+  const posicionSlot = SLOT_A_POSICION[slot.label];
   const convocados = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).sort((a,b)=>a.dorsal-b.dorsal);
   const usados = new Set(Object.entries(partido.alineacion||{}).filter(([k]) => k!==slotId).map(([,v]) => v));
-  const libres = convocados.filter(j => !usados.has(j.id));
+  let libres = convocados.filter(j => !usados.has(j.id));
+  if(posicionSlot) libres = [...libres].sort((a,b) => (b.posicion===posicionSlot) - (a.posicion===posicionSlot));
   openModal(`
     <h3>Posición: ${slot.label}</h3>
     <div class="list-simple">
       ${partido.alineacion[slotId] ? `<button type="button" class="btn-secondary" style="width:100%" onclick="asignarPosicion('${slotId}', '')">Quitar de esta posición</button>` : ''}
-      ${libres.map(j => `<button type="button" class="list-row" style="width:100%;border:none;text-align:left;cursor:pointer" onclick="asignarPosicion('${slotId}', '${j.id}')">${avatarHtml(j,'small')}<span class="list-name">${escapeHtml(formatName(j.nombre))}</span></button>`).join('') || '<p class="hint">No quedan convocados libres para esta posición.</p>'}
+      ${libres.map(j => `<button type="button" class="list-row" style="width:100%;border:none;text-align:left;cursor:pointer" onclick="asignarPosicion('${slotId}', '${j.id}')">${avatarHtml(j,'small')}<span class="list-name">${escapeHtml(formatName(j.nombre))}${j.posicion===posicionSlot?' <span class="muted small">(su posición)</span>':''}</span></button>`).join('') || '<p class="hint">No quedan convocados libres para esta posición.</p>'}
     </div>
     <div class="modal-actions"><button class="btn-secondary" onclick="abrirModalAlineacion('${window.__alinPartidoId}')">Volver</button></div>`);
 }
@@ -1373,7 +1477,7 @@ async function asignarPosicion(slotId, jugadorId){
   if(!partido.alineacion) partido.alineacion = {};
   if(jugadorId) partido.alineacion[slotId] = jugadorId;
   else delete partido.alineacion[slotId];
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
   abrirModalAlineacion(window.__alinPartidoId);
 }
 
@@ -1440,7 +1544,7 @@ async function iniciarPartidoEnVivo(){
     estado:'en_curso', inicioTimestamp: Date.now(), pausadoDesde:null, segundosPausados:0,
     cambios:[], alineacionActual: {...(partido.alineacion||{})}
   };
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
   renderModalPartidoEnVivo();
   showToast('Partido iniciado.');
 }
@@ -1448,7 +1552,7 @@ async function pausarPartidoEnVivo(){
   const partido = state.partidos.find(p => p.id === window.__vivoPartidoId);
   partido.partidoEnVivo.estado = 'pausado';
   partido.partidoEnVivo.pausadoDesde = Date.now();
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
   renderModalPartidoEnVivo();
 }
 async function reanudarPartidoEnVivo(){
@@ -1457,14 +1561,14 @@ async function reanudarPartidoEnVivo(){
   pv.segundosPausados = (pv.segundosPausados||0) + Math.floor((Date.now()-pv.pausadoDesde)/1000);
   pv.pausadoDesde = null;
   pv.estado = 'en_curso';
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
   renderModalPartidoEnVivo();
 }
 async function finalizarPartidoEnVivo(){
   if(!confirm('¿Finalizar el partido?')) return;
   const partido = state.partidos.find(p => p.id === window.__vivoPartidoId);
   partido.partidoEnVivo.estado = 'finalizado';
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
   clearInterval(liveTimerInterval);
   renderModalPartidoEnVivo();
   renderMinutosTab();
@@ -1497,7 +1601,7 @@ async function confirmarCambio(){
   if(slot) pv.alineacionActual[slot] = entraId;
   pv.cambios = pv.cambios || [];
   pv.cambios.push({minuto, sale:saleId, entra:entraId});
-  await saveKey(STORAGE_KEYS.partidos, state.partidos);
+  await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
   renderModalPartidoEnVivo();
   showToast('Cambio registrado.');
 }
@@ -1636,8 +1740,9 @@ async function registrarMulta(){
     const cat = state.catalogo.find(c => c.id === motivoSel);
     motivoTexto = cat ? cat.motivo : 'Otro';
   }
-  state.multas.push({id:uid(), jugadorId, motivo:motivoTexto, importeBase:importe, fecha, pagada:false, fechaPago:null, importeFinal:null});
-  await saveKey(STORAGE_KEYS.multas, state.multas);
+  const nuevaMulta = {id:uid(), jugadorId, motivo:motivoTexto, importeBase:importe, fecha, pagada:false, fechaPago:null, importeFinal:null};
+  state.multas.push(nuevaMulta);
+  await guardarColeccion(STORAGE_KEYS.multas, {tipo:'upsert', item: nuevaMulta});
   renderMultasTab();
   showToast('Multa registrada.');
 }
@@ -1646,13 +1751,13 @@ async function marcarPagada(id, pagada){
   m.pagada = pagada;
   m.fechaPago = pagada ? todayISO() : null;
   m.importeFinal = pagada ? importeActual({...m, pagada:false}) : null;
-  await saveKey(STORAGE_KEYS.multas, state.multas);
+  await guardarColeccion(STORAGE_KEYS.multas, {tipo:'upsert', item: m});
   renderMultasTab();
 }
 async function borrarMulta(id){
   if(!confirm('¿Borrar esta multa?')) return;
   state.multas = state.multas.filter(m => m.id !== id);
-  await saveKey(STORAGE_KEYS.multas, state.multas);
+  await guardarColeccion(STORAGE_KEYS.multas, {tipo:'borrar', id});
   renderMultasTab();
   showToast('Multa eliminada.');
 }
@@ -1704,48 +1809,52 @@ function renderMultasAlert(){
   banner.innerHTML = `⚠️ ${vencidas.length} multa(s) con más de 2 semanas sin pagar — recargo acumulado: ${money(recargoTotal)}`;
 }
 
-/* ===================== ENTRENAMIENTOS: TEST DE COURSE NAVETTE ===================== */
+/* ===================== ENTRENAMIENTOS: TESTS FÍSICOS (Course Navette / Cooper) ===================== */
+const TIPOS_TEST = {course_navette:{nombre:'Course Navette', placeholder:'ej. 8.4'}, cooper:{nombre:'Cooper', placeholder:'ej. 2400m'}};
 function renderTestFisico(){
-  const tests = [...state.tests].sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
-  const listEl = document.getElementById('testFechasList');
-  if(tests.length===0){
-    listEl.innerHTML = '<div class="empty-state"><p>Aún no hay ninguna fecha de test registrada.</p></div>';
-    document.getElementById('testFisicoWrap').style.display = 'none';
-    return;
-  }
-  listEl.innerHTML = tests.map(t => `
-    <div class="list-row">
-      <span class="list-name">${formatDateLong(t.fecha)}</span>
-      <div class="row-actions">
-        <button class="icon-btn" onclick="abrirModalResultadosTest('${t.id}')">✎</button>
-        <button class="icon-btn danger" onclick="borrarTestFecha('${t.id}')">🗑</button>
-      </div>
-    </div>`).join('');
+  ['course_navette','cooper'].forEach(tipo => {
+    const tests = state.tests.filter(t => (t.tipo||'course_navette') === tipo).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
+    const listEl = document.getElementById('testFechasList_' + tipo);
+    const wrap = document.getElementById('testFisicoWrap_' + tipo);
+    if(tests.length === 0){
+      listEl.innerHTML = '<div class="empty-state"><p>Aún no hay ninguna fecha de test registrada.</p></div>';
+      wrap.style.display = 'none';
+      return;
+    }
+    listEl.innerHTML = tests.map(t => `
+      <div class="list-row">
+        <span class="list-name">${formatDateLong(t.fecha)}</span>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="abrirModalResultadosTest('${t.id}')">✎</button>
+          <button class="icon-btn danger" onclick="borrarTestFecha('${t.id}')">🗑</button>
+        </div>
+      </div>`).join('');
 
-  document.getElementById('testFisicoWrap').style.display = state.jugadores.length ? 'block' : 'none';
-  const testsAsc = [...tests].sort((a,b) => new Date(a.fecha)-new Date(b.fecha));
-  document.getElementById('testFisicoHead').innerHTML = '<th>Jugador</th>' + testsAsc.map(t => `<th>${formatDateShort(t.fecha)}</th>`).join('');
-  const jugadoresOrdenados = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal);
-  document.getElementById('testFisicoBody').innerHTML = jugadoresOrdenados.map(j => {
-    const cells = testsAsc.map(t => `<td>${escapeHtml((t.resultados||{})[j.id] || '—')}</td>`).join('');
-    return `<tr><td>${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</td>${cells}</tr>`;
-  }).join('');
+    wrap.style.display = state.jugadores.length ? 'block' : 'none';
+    const testsAsc = [...tests].sort((a,b) => new Date(a.fecha)-new Date(b.fecha));
+    document.getElementById('testFisicoHead_' + tipo).innerHTML = '<th>Jugador</th>' + testsAsc.map(t => `<th>${formatDateShort(t.fecha)}</th>`).join('');
+    const jugadoresOrdenados = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal);
+    document.getElementById('testFisicoBody_' + tipo).innerHTML = jugadoresOrdenados.map(j => {
+      const cells = testsAsc.map(t => `<td>${escapeHtml((t.resultados||{})[j.id] || '—')}</td>`).join('');
+      return `<tr><td>${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</td>${cells}</tr>`;
+    }).join('');
+  });
 }
-function abrirModalTestFecha(){
+function abrirModalTestFecha(tipo){
   openModal(`
-    <h3>Nueva fecha de test</h3>
+    <h3>Nueva fecha de test · ${TIPOS_TEST[tipo].nombre}</h3>
     <label>Fecha<input type="date" id="mTestFecha" value="${todayISO()}"></label>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn-primary" onclick="crearTestFecha()">Crear y rellenar resultados</button>
+      <button class="btn-primary" onclick="crearTestFecha('${tipo}')">Crear y rellenar resultados</button>
     </div>`);
 }
-async function crearTestFecha(){
+async function crearTestFecha(tipo){
   const fecha = document.getElementById('mTestFecha').value;
   if(!fecha){ showToast('Indica una fecha.'); return; }
-  const nuevo = {id:uid(), fecha, resultados:{}};
+  const nuevo = {id:uid(), tipo, fecha, resultados:{}};
   state.tests.push(nuevo);
-  await saveKey(STORAGE_KEYS.tests, state.tests);
+  await guardarColeccion(STORAGE_KEYS.tests, {tipo:'upsert', item: nuevo});
   closeModal();
   renderTestFisico();
   abrirModalResultadosTest(nuevo.id);
@@ -1753,21 +1862,22 @@ async function crearTestFecha(){
 async function borrarTestFecha(id){
   if(!confirm('¿Borrar esta fecha de test y sus resultados?')) return;
   state.tests = state.tests.filter(t => t.id !== id);
-  await saveKey(STORAGE_KEYS.tests, state.tests);
+  await guardarColeccion(STORAGE_KEYS.tests, {tipo:'borrar', id});
   renderTestFisico();
   showToast('Fecha de test eliminada.');
 }
 function abrirModalResultadosTest(testId){
   const test = state.tests.find(t => t.id === testId);
+  const tipo = test.tipo || 'course_navette';
   const rows = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal).map(j => `
     <div class="conv-row-top" data-jid="${j.id}" style="padding:6px 0;border-bottom:1px solid var(--border);">
       <span class="dorsal-badge small">${j.dorsal}</span>
       <span class="conv-name">${escapeHtml(formatName(j.nombre))}</span>
-      <input type="text" class="test-result-input" placeholder="ej. 8.4" value="${escapeHtml((test.resultados||{})[j.id]||'')}">
+      <input type="text" class="test-result-input" placeholder="${TIPOS_TEST[tipo].placeholder}" value="${escapeHtml((test.resultados||{})[j.id]||'')}">
     </div>`).join('');
   openModal(`
-    <h3>Resultados · ${formatDateLong(test.fecha)}</h3>
-    <p class="hint">Anota el resultado en el formato que uses habitualmente (nivel.periodo, nº de tramos, etc.). Déjalo en blanco si ese día no hizo el test.</p>
+    <h3>Resultados · ${TIPOS_TEST[tipo].nombre} · ${formatDateLong(test.fecha)}</h3>
+    <p class="hint">Anota el resultado en el formato que uses habitualmente. Déjalo en blanco si ese día no hizo el test.</p>
     <div class="convocatoria-list">${rows}</div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
@@ -1782,7 +1892,7 @@ async function guardarResultadosTest(testId){
     const val = row.querySelector('.test-result-input').value.trim();
     test.resultados[jid] = val;
   });
-  await saveKey(STORAGE_KEYS.tests, state.tests);
+  await guardarColeccion(STORAGE_KEYS.tests, {tipo:'upsert', item: test});
   closeModal();
   renderTestFisico();
   showToast('Resultados guardados.');
@@ -1824,20 +1934,23 @@ async function guardarEjercicio(id){
   const categoria = document.getElementById('mEjCategoria').value.trim();
   const url = document.getElementById('mEjUrl').value.trim();
   if(!titulo || !url){ showToast('Completa al menos el título y el enlace.'); return; }
+  let ejFinal;
   if(id){
     const e = state.ejercicios.find(x => x.id === id);
     e.titulo=titulo; e.categoria=categoria; e.url=url;
+    ejFinal = e;
   } else {
-    state.ejercicios.push({id:uid(), titulo, categoria, url});
+    ejFinal = {id:uid(), titulo, categoria, url};
+    state.ejercicios.push(ejFinal);
   }
-  await saveKey(STORAGE_KEYS.ejercicios, state.ejercicios);
+  await guardarColeccion(STORAGE_KEYS.ejercicios, {tipo:'upsert', item: ejFinal});
   closeModal(); renderEjerciciosList();
   showToast('Ejercicio guardado.');
 }
 async function borrarEjercicio(id){
   if(!confirm('¿Borrar este ejercicio?')) return;
   state.ejercicios = state.ejercicios.filter(e => e.id !== id);
-  await saveKey(STORAGE_KEYS.ejercicios, state.ejercicios);
+  await guardarColeccion(STORAGE_KEYS.ejercicios, {tipo:'borrar', id});
   renderEjerciciosList();
   showToast('Ejercicio eliminado.');
 }
@@ -1898,20 +2011,23 @@ async function guardarMotivo(id){
   const motivo = document.getElementById('mMotTexto').value.trim();
   const importe = parseFloat(document.getElementById('mMotImporte').value);
   if(!motivo || isNaN(importe)){ showToast('Completa motivo e importe.'); return; }
+  let catFinal;
   if(id){
     const c = state.catalogo.find(x => x.id === id);
     c.motivo = motivo; c.importe = importe;
+    catFinal = c;
   } else {
-    state.catalogo.push({id:uid(), motivo, importe});
+    catFinal = {id:uid(), motivo, importe};
+    state.catalogo.push(catFinal);
   }
-  await saveKey(STORAGE_KEYS.catalogo, state.catalogo);
+  await guardarColeccion(STORAGE_KEYS.catalogo, {tipo:'upsert', item: catFinal});
   closeModal(); renderCatalogoList(); renderMultasTab();
   showToast('Catálogo actualizado.');
 }
 async function borrarMotivo(id){
   if(!confirm('¿Borrar este motivo del catálogo?')) return;
   state.catalogo = state.catalogo.filter(c => c.id !== id);
-  await saveKey(STORAGE_KEYS.catalogo, state.catalogo);
+  await guardarColeccion(STORAGE_KEYS.catalogo, {tipo:'borrar', id});
   renderCatalogoList(); renderMultasTab();
 }
 async function confirmarBorrarTodo(){
@@ -1921,7 +2037,8 @@ async function confirmarBorrarTodo(){
   state.catalogo = CATALOGO_DEFAULT.map(c => ({...c}));
   state.config = {...CONFIG_DEFAULT};
   await Promise.all([
-    saveKey(STORAGE_KEYS.roster, {jugadores:[], entrenadores:[]}),
+    saveKey(STORAGE_KEYS.jugadores, []),
+    saveKey(STORAGE_KEYS.entrenadores, []),
     saveKey(STORAGE_KEYS.partidos, []),
     saveKey(STORAGE_KEYS.multas, []),
     saveKey(STORAGE_KEYS.catalogo, state.catalogo),
