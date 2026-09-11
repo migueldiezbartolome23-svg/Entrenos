@@ -12,6 +12,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Cadete A">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -399,6 +402,8 @@ canvas{max-width:100%;}
         <p class="hint">Borra jugadores, entrenadores, partidos, multas, ejercicios y tests. Útil solo para empezar de cero. Los datos se guardan en este navegador/dispositivo.</p>
         <button class="btn-danger" onclick="confirmarBorrarTodo()">Borrar todos los datos</button>
       </div>
+
+      <p class="muted small" style="text-align:center;margin-top:-4px">Versión de la app: <span id="appVersionLabel"></span></p>
     </section>
 
   </main>
@@ -434,6 +439,7 @@ canvas{max-width:100%;}
 
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
+const APP_VERSION = '10/09/2026 - 12:40';
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
 
 const FIREBASE_CONFIG = {
@@ -1996,6 +2002,7 @@ function renderAjustesTab(){
   document.getElementById('configDuracion').value = state.config.duracionPartido;
   renderDiasEntrenoConfig();
   renderCatalogoList();
+  document.getElementById('appVersionLabel').textContent = APP_VERSION;
 }
 async function guardarConfig(){
   const val = parseInt(document.getElementById('configDuracion').value, 10);
