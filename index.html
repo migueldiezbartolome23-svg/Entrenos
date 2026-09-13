@@ -168,6 +168,9 @@ canvas{max-width:100%;}
 .dia-toggle{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:#fff;color:var(--muted);font-weight:600;cursor:pointer;}
 .dia-toggle.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 
+.pizarra-token{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:grab;touch-action:none;user-select:none;z-index:5;}
+.pizarra-token:active{cursor:grabbing;z-index:6;}
+
 .pitch-wrap{position:relative;width:100%;aspect-ratio:68/100;background:#2E7D4F;border-radius:10px;overflow:hidden;margin-bottom:10px;}
 .pitch-lines{position:absolute;inset:0;width:100%;height:100%;}
 .pitch-slot{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;z-index:2;}
@@ -190,6 +193,7 @@ canvas{max-width:100%;}
 <body>
 <div class="splash" id="splashScreen"><img src="logo-header.png" alt="Cadete A"></div>
 <div id="updateBanner" onclick="location.reload()" style="display:none;position:fixed;top:0;left:0;right:0;z-index:900;background:#D22630;color:#fff;text-align:center;padding:10px 14px calc(10px + env(safe-area-inset-top,0px));font-size:12.5px;font-weight:600;cursor:pointer;">🔄 Hay una versión más nueva — toca aquí para cargarla</div>
+<div id="syncErrorBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:899;background:#8A5A00;color:#fff;text-align:center;padding:10px 14px calc(10px + env(safe-area-inset-top,0px));font-size:12px;font-weight:600;">⚠️ Sin sincronización con la nube — revisa la conexión o las reglas de Firebase (los datos se guardan solo en este dispositivo)</div>
 <div id="app">
   <header class="topbar">
     <div class="crest"><img src="logo-header.png" alt="Escudo"></div>
@@ -295,6 +299,22 @@ canvas{max-width:100%;}
           <div class="total-box"><span class="total-label">Recaudado</span><span class="total-value" id="totalCobrado">0,00 €</span></div>
           <div class="total-box"><span class="total-label">Pendiente</span><span class="total-value" id="totalPendiente">0,00 €</span></div>
         </div>
+        <div class="totales-grid" style="margin-top:10px">
+          <div class="total-box"><span class="total-label">Otros ingresos</span><span class="total-value" id="totalIngresos">0,00 €</span></div>
+          <div class="total-box"><span class="total-label">Fondo total</span><span class="total-value" id="totalFondo">0,00 €</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Otros ingresos</h3>
+        <p class="hint">Aportaciones del club, sobrante de la temporada anterior, etc. Se suman al fondo total pero no son multas de ningún jugador.</p>
+        <label>Concepto<input type="text" id="ingresoConcepto" placeholder="Ej: Aportación del club"></label>
+        <div class="form-grid">
+          <label>Importe (€)<input type="number" id="ingresoImporte" step="0.5" min="0"></label>
+          <label>Fecha<input type="date" id="ingresoFecha"></label>
+        </div>
+        <button class="btn-primary" style="width:100%" onclick="registrarIngreso()">Añadir ingreso</button>
+        <div id="ingresosList" class="list-simple" style="margin-top:10px"></div>
       </div>
 
       <div class="card">
@@ -352,6 +372,12 @@ canvas{max-width:100%;}
             <tbody id="testFisicoBody_cooper"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="card">
+        <h3>Pizarra táctica</h3>
+        <p class="hint">Mueve a los jugadores libremente por el campo para explicar movimientos o jugadas. No se guarda al cerrarla, cada vez empieza de cero.</p>
+        <button class="btn-primary" style="width:100%" onclick="abrirPizarra()">Abrir pizarra</button>
       </div>
 
       <div class="card">
@@ -440,7 +466,7 @@ canvas{max-width:100%;}
 
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
-const APP_VERSION = '10/09/2026 - 13:15';
+const APP_VERSION = '11/09/2026 - 09:30';
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
 
 const FIREBASE_CONFIG = {
@@ -457,7 +483,7 @@ try{
   firebase.initializeApp(FIREBASE_CONFIG);
   fbDb = firebase.database();
 }catch(e){ console.error('Error inicializando Firebase', e); }
-const STORAGE_KEYS = { jugadores:'jugadores', entrenadores:'entrenadores', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas', ejercicios:'ejercicios', tests:'tests_fisicos' };
+const STORAGE_KEYS = { jugadores:'jugadores', entrenadores:'entrenadores', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas', ejercicios:'ejercicios', tests:'tests_fisicos', ingresos:'ingresos' };
 
 const CATALOGO_DEFAULT = [
   ['Retraso injustificado en entrenamiento',1.00],
@@ -489,6 +515,12 @@ const CATALOGO_DEFAULT = [
 
 const POSICIONES_JUGADOR = ['Portero','Defensa central','Lateral derecho','Lateral izquierdo','Mediocentro defensivo','Mediocentro','Mediapunta','Extremo derecho','Extremo izquierdo','Delantero centro'];
 const DORSALES_PORTERO = [1, 13, 23];
+function comparaPosicion(a, b){
+  const ia = a.posicion ? POSICIONES_JUGADOR.indexOf(a.posicion) : 999;
+  const ib = b.posicion ? POSICIONES_JUGADOR.indexOf(b.posicion) : 999;
+  if(ia !== ib) return ia - ib;
+  return a.dorsal - b.dorsal;
+}
 
 const ROSTER_NOMBRES_DEFAULT = [
   [1,'Marcelo'],[2,'Alvaro L / Polioli'],[3,'Samuel'],[4,'Pablo'],[5,'Blasco'],
@@ -577,7 +609,7 @@ const FORMACIONES_POSICIONES = {
   ]
 };
 
-let state = { jugadores:[], entrenadores:[], config:{...CONFIG_DEFAULT}, partidos:[], multas:[], catalogo:[], ejercicios:[], tests:[] };
+let state = { jugadores:[], entrenadores:[], config:{...CONFIG_DEFAULT}, partidos:[], multas:[], catalogo:[], ejercicios:[], tests:[], ingresos:[] };
 let charts = { minutos:null, estados:null, evolucion:null };
 let currentSort = { key:'minutos', dir:'desc' };
 let minutosView = 'calendario';
@@ -593,6 +625,14 @@ async function loadKey(key, fallback){
   }catch(e){}
   return fallback;
 }
+function mostrarAvisoSync(){
+  const b = document.getElementById('syncErrorBanner');
+  const ub = document.getElementById('updateBanner');
+  b.style.top = (ub && ub.style.display === 'block') ? '38px' : '0';
+  b.style.display = 'block';
+}
+function ocultarAvisoSync(){ document.getElementById('syncErrorBanner').style.display = 'none'; }
+
 async function saveKey(key, value){
   try{
     localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
@@ -602,9 +642,10 @@ async function saveKey(key, value){
   if(!fbDb) return;
   try{
     await fbDb.ref(key).set(value);
+    ocultarAvisoSync();
   }catch(e){
     console.error('Error sincronizando', key, e);
-    showToast('Guardado en este dispositivo, pero no se pudo sincronizar. Revisa tu conexión.');
+    mostrarAvisoSync();
   }
 }
 function normalizarArray(v){ return Array.isArray(v) ? v : Object.values(v || {}); }
@@ -628,9 +669,10 @@ async function guardarColeccion(key, cambio){
     }
     await fbDb.ref(key).set(remoto);
     setArrayForKey(key, remoto);
+    ocultarAvisoSync();
   }catch(e){
     console.error('Error sincronizando', key, e);
-    showToast('Guardado en este dispositivo, pero no se pudo sincronizar. Revisa tu conexión.');
+    mostrarAvisoSync();
   }
 }
 function getArrayForKey(key){
@@ -641,6 +683,7 @@ function getArrayForKey(key){
   if(key === STORAGE_KEYS.catalogo) return state.catalogo;
   if(key === STORAGE_KEYS.ejercicios) return state.ejercicios;
   if(key === STORAGE_KEYS.tests) return state.tests;
+  if(key === STORAGE_KEYS.ingresos) return state.ingresos;
   return [];
 }
 function setArrayForKey(key, arr){
@@ -651,6 +694,7 @@ function setArrayForKey(key, arr){
   else if(key === STORAGE_KEYS.catalogo){ state.catalogo = arr; renderMultasTab(); renderCatalogoList(); }
   else if(key === STORAGE_KEYS.ejercicios){ state.ejercicios = arr; renderEntrenamientosTab(); }
   else if(key === STORAGE_KEYS.tests){ state.tests = arr; renderEntrenamientosTab(); }
+  else if(key === STORAGE_KEYS.ingresos){ state.ingresos = arr; renderMultasTab(); }
 }
 
 function migrarConvocatoria(partidos){
@@ -668,7 +712,7 @@ function migrarConvocatoria(partidos){
 }
 
 async function init(){
-  const [jugadoresLocal, entrenadoresLocal, rosterViejo, config, partidos, multas, catalogo, ejercicios, tests] = await Promise.all([
+  const [jugadoresLocal, entrenadoresLocal, rosterViejo, config, partidos, multas, catalogo, ejercicios, tests, ingresos] = await Promise.all([
     loadKey(STORAGE_KEYS.jugadores, null),
     loadKey(STORAGE_KEYS.entrenadores, null),
     loadKey('roster', null),
@@ -677,7 +721,8 @@ async function init(){
     loadKey(STORAGE_KEYS.multas, []),
     loadKey(STORAGE_KEYS.catalogo, null),
     loadKey(STORAGE_KEYS.ejercicios, []),
-    loadKey(STORAGE_KEYS.tests, [])
+    loadKey(STORAGE_KEYS.tests, []),
+    loadKey(STORAGE_KEYS.ingresos, [])
   ]);
 
   if(jugadoresLocal){
@@ -710,6 +755,7 @@ async function init(){
   state.multas = multas || [];
   state.ejercicios = ejercicios || [];
   state.tests = tests || [];
+  state.ingresos = ingresos || [];
 
   if(catalogo){
     state.catalogo = catalogo;
@@ -746,13 +792,14 @@ async function init(){
           fbDb.ref(STORAGE_KEYS.multas).set(state.multas),
           fbDb.ref(STORAGE_KEYS.catalogo).set(state.catalogo),
           fbDb.ref(STORAGE_KEYS.ejercicios).set(state.ejercicios),
-          fbDb.ref(STORAGE_KEYS.tests).set(state.tests)
+          fbDb.ref(STORAGE_KEYS.tests).set(state.tests),
+          fbDb.ref(STORAGE_KEYS.ingresos).set(state.ingresos)
         ]);
       }
       activarSincronizacionEnVivo();
     }catch(e){
       console.error('No se pudo sincronizar con Firebase', e);
-      showToast('Sin conexión con la sincronización — usando los datos de este dispositivo.');
+      mostrarAvisoSync();
     }
   }
 }
@@ -769,6 +816,7 @@ function aplicarDatosRemotos(remoto){
   if(remoto[STORAGE_KEYS.catalogo]) state.catalogo = normalizarArray(remoto[STORAGE_KEYS.catalogo]);
   if(remoto[STORAGE_KEYS.ejercicios]) state.ejercicios = normalizarArray(remoto[STORAGE_KEYS.ejercicios]);
   if(remoto[STORAGE_KEYS.tests]) state.tests = normalizarArray(remoto[STORAGE_KEYS.tests]);
+  if(remoto[STORAGE_KEYS.ingresos]) state.ingresos = normalizarArray(remoto[STORAGE_KEYS.ingresos]);
 }
 
 function activarSincronizacionEnVivo(){
@@ -808,6 +856,10 @@ function activarSincronizacionEnVivo(){
     state.tests = snap.val() ? normalizarArray(snap.val()) : [];
     renderEntrenamientosTab();
   });
+  fbDb.ref(STORAGE_KEYS.ingresos).on('value', snap => {
+    state.ingresos = snap.val() ? normalizarArray(snap.val()) : [];
+    renderMultasTab();
+  });
 
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'visible'){ refrescarDesdeFirebase(); comprobarVersion(); }
@@ -818,8 +870,8 @@ async function refrescarDesdeFirebase(){
   try{
     const snap = await fbDb.ref('/').once('value');
     const remoto = snap.val();
-    if(remoto){ aplicarDatosRemotos(remoto); renderAll(); }
-  }catch(e){ console.error('Error refrescando desde Firebase', e); }
+    if(remoto){ aplicarDatosRemotos(remoto); renderAll(); ocultarAvisoSync(); }
+  }catch(e){ console.error('Error refrescando desde Firebase', e); mostrarAvisoSync(); }
 }
 async function comprobarVersion(){
   try{
@@ -918,7 +970,7 @@ function renderJugadoresTab(){
     list.innerHTML = '<div class="empty-state"><p>Todavía no hay jugadores.</p></div>';
     return;
   }
-  const sorted = [...state.jugadores].sort((a,b) => a.dorsal - b.dorsal);
+  const sorted = [...state.jugadores].sort(comparaPosicion);
   list.innerHTML = sorted.map(j => `
     <div class="list-row">
       ${avatarHtml(j)}
@@ -1236,7 +1288,7 @@ async function borrarPartido(id){
 
 function abrirModalConvocatoria(partidoId){
   const partido = state.partidos.find(p => p.id === partidoId);
-  const jugadoresOrdenados = [...state.jugadores].sort((a,b) => a.dorsal - b.dorsal);
+  const jugadoresOrdenados = [...state.jugadores].sort(comparaPosicion);
   const rows = jugadoresOrdenados.map(j => {
     const e = partido.convocatoria[j.id] || {convocado:false, condicion:null, minutos:0};
     return `
@@ -1264,11 +1316,11 @@ function abrirModalConvocatoria(partidoId){
   openModal(`
     <h3>${escapeHtml(partido.rival||'Partido')} · ${formatDateShort(partido.fecha)}</h3>
     <p class="hint">Primero decide quién está <strong>convocado</strong> (esto es lo que sale en el PDF). Titular/suplente y minutos lo puedes rellenar cuando lo decidas o al terminar el partido.</p>
-    <label>Imagen para el PDF de esta convocatoria (opcional)
+    <label>Imagen adicional para el PDF (opcional, el escudo siempre sale fijo)
       <input type="file" accept="image/*" id="mConvImagen" onchange="previewImagenConvocatoria(event)">
     </label>
     <div class="img-preview-box ${partido.imagenConvocatoria?'':'empty'}" id="mConvImagenPreview">
-      ${partido.imagenConvocatoria ? `<img src="${partido.imagenConvocatoria}">` : 'Sin imagen — se usará el escudo del club'}
+      ${partido.imagenConvocatoria ? `<img src="${partido.imagenConvocatoria}">` : 'Sin imagen adicional'}
     </div>
     ${partido.imagenConvocatoria ? `<button type="button" class="btn-ghost" style="margin-bottom:12px" onclick="quitarImagenConvocatoria()">Quitar imagen</button>` : ''}
     <div class="conv-toolbar">
@@ -1317,7 +1369,7 @@ function quitarImagenConvocatoria(){
   convocatoriaImagenPendiente = null;
   const box = document.getElementById('mConvImagenPreview');
   box.className = 'img-preview-box empty';
-  box.textContent = 'Sin imagen — se usará el escudo del club';
+  box.textContent = 'Sin imagen adicional';
 }
 async function guardarConvocatoria(partidoId){
   const partido = state.partidos.find(p => p.id === partidoId);
@@ -1417,7 +1469,7 @@ function renderCharts(){
 
   const sel = document.getElementById('evolucionSelect');
   const prevVal = sel.value;
-  sel.innerHTML = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal).map(j => `<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('');
+  sel.innerHTML = [...state.jugadores].sort(comparaPosicion).map(j => `<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('');
   if(prevVal && state.jugadores.find(j=>j.id===prevVal)) sel.value = prevVal;
   renderEvolucionChart();
 }
@@ -1504,7 +1556,7 @@ function abrirSelectorPosicion(slotId, mostrarTodos){
   const layout = FORMACIONES_POSICIONES[partido.formacion];
   const slot = layout.find(s => s.id === slotId);
   const posicionSlot = SLOT_A_POSICION[slot.label];
-  const convocados = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).sort((a,b)=>a.dorsal-b.dorsal);
+  const convocados = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).sort(comparaPosicion);
   const usados = new Set(Object.entries(partido.alineacion||{}).filter(([k]) => k!==slotId).map(([,v]) => v));
   let libres = convocados.filter(j => !usados.has(j.id));
   const todosLibres = libres;
@@ -1526,6 +1578,79 @@ async function asignarPosicion(slotId, jugadorId){
   else delete partido.alineacion[slotId];
   await guardarColeccion(STORAGE_KEYS.partidos, {tipo:'upsert', item: partido});
   abrirModalAlineacion(window.__alinPartidoId);
+}
+
+/* ===================== PIZARRA TÁCTICA (no se guarda, solo en memoria mientras está abierta) ===================== */
+let pizarraEstado = null;
+function abrirPizarra(){
+  const jugadoresPizarra = [...state.jugadores].sort(comparaPosicion).slice(0, 11);
+  const layout = FORMACIONES_POSICIONES['4-3-3'];
+  const posiciones = {};
+  jugadoresPizarra.forEach((j, i) => {
+    const slot = layout[i] || {x: 10 + (i%9)*9, y: 50};
+    posiciones[j.id] = {x: slot.x, y: slot.y};
+  });
+  pizarraEstado = {jugadores: jugadoresPizarra, posiciones};
+  openModal(`
+    <h3>Pizarra táctica</h3>
+    <p class="hint">Arrastra a los jugadores para dibujar movimientos o jugadas. No se guarda: se reinicia cada vez que la abres.</p>
+    <div class="pitch-wrap" id="pizarraPitch">
+      <svg class="pitch-lines" viewBox="0 0 68 100" preserveAspectRatio="none">
+        <rect x="1" y="1" width="66" height="98" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+        <line x1="1" y1="50" x2="67" y2="50" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+        <circle cx="34" cy="50" r="9" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+        <rect x="14" y="1" width="40" height="16" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+        <rect x="14" y="83" width="40" height="16" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+      </svg>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" onclick="abrirPizarra()">Reiniciar</button>
+      <button type="button" class="btn-primary" onclick="closeModal()">Cerrar</button>
+    </div>`);
+  if(jugadoresPizarra.length === 0){
+    document.getElementById('pizarraPitch').insertAdjacentHTML('beforeend', '<p class="hint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#fff;">Añade jugadores primero para poder moverlos aquí.</p>');
+    return;
+  }
+  renderPizarraTokens();
+}
+function renderPizarraTokens(){
+  const wrap = document.getElementById('pizarraPitch');
+  wrap.querySelectorAll('.pizarra-token').forEach(el => el.remove());
+  pizarraEstado.jugadores.forEach(j => {
+    const pos = pizarraEstado.posiciones[j.id];
+    const el = document.createElement('div');
+    el.className = 'pizarra-token';
+    el.style.left = pos.x + '%';
+    el.style.top = pos.y + '%';
+    el.dataset.jid = j.id;
+    el.innerHTML = `<div class="slot-avatar">${j.foto?`<img src="${j.foto}">`:`<span>${j.dorsal}</span>`}</div><div class="slot-name">${escapeHtml(formatName(j.nombre))}</div>`;
+    el.addEventListener('pointerdown', iniciarArrastrePizarra);
+    wrap.appendChild(el);
+  });
+}
+function iniciarArrastrePizarra(e){
+  e.preventDefault();
+  const el = e.currentTarget;
+  const wrap = document.getElementById('pizarraPitch');
+  try{ el.setPointerCapture(e.pointerId); }catch(err){}
+  function mover(ev){
+    const rect = wrap.getBoundingClientRect();
+    let x = (ev.clientX - rect.left) / rect.width * 100;
+    let y = (ev.clientY - rect.top) / rect.height * 100;
+    x = Math.max(3, Math.min(97, x));
+    y = Math.max(3, Math.min(97, y));
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    if(pizarraEstado) pizarraEstado.posiciones[el.dataset.jid] = {x, y};
+  }
+  function soltar(){
+    el.removeEventListener('pointermove', mover);
+    el.removeEventListener('pointerup', soltar);
+    el.removeEventListener('pointercancel', soltar);
+  }
+  el.addEventListener('pointermove', mover);
+  el.addEventListener('pointerup', soltar);
+  el.addEventListener('pointercancel', soltar);
 }
 
 /* ===================== PARTIDO EN DIRECTO ===================== */
@@ -1625,9 +1750,9 @@ function abrirModalCambio(){
   const partido = state.partidos.find(p => p.id === window.__vivoPartidoId);
   const pv = partido.partidoEnVivo;
   const enCampoIds = Object.values(pv.alineacionActual||{});
-  const enCampo = state.jugadores.filter(j => enCampoIds.includes(j.id)).sort((a,b)=>a.dorsal-b.dorsal);
+  const enCampo = state.jugadores.filter(j => enCampoIds.includes(j.id)).sort(comparaPosicion);
   const convocadosIds = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).map(j=>j.id);
-  const disponibles = state.jugadores.filter(j => convocadosIds.includes(j.id) && !enCampoIds.includes(j.id)).sort((a,b)=>a.dorsal-b.dorsal);
+  const disponibles = state.jugadores.filter(j => convocadosIds.includes(j.id) && !enCampoIds.includes(j.id)).sort(comparaPosicion);
   openModal(`
     <h3>Hacer un cambio · Min ${Math.floor(calcularSegundosActuales(pv)/60)}'</h3>
     <label>Sale<select id="mCambioSale">${enCampo.map(j=>`<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('') || '<option value="">— nadie en el campo —</option>'}</select></label>
@@ -1660,29 +1785,26 @@ async function generarConvocatoriaPDF(partidoId){
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF();
 
-    const convocados = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).sort((a,b) => a.dorsal - b.dorsal);
-    const desconvocados = state.jugadores.filter(j => !(partido.convocatoria||{})[j.id]?.convocado).sort((a,b) => a.dorsal - b.dorsal);
+    const convocados = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).sort(comparaPosicion);
+    const desconvocados = state.jugadores.filter(j => !(partido.convocatoria||{})[j.id]?.convocado).sort(comparaPosicion);
 
-    const usaLogoDefecto = !partido.imagenConvocatoria;
-    const imagenPDF = partido.imagenConvocatoria || LOGO_BASE64;
-    const formatoImg = usaLogoDefecto ? 'PNG' : 'JPEG';
-    const dim = await getImageDimensions(imagenPDF);
-    const maxW = 100, maxH = 48;
-    let w = maxW, h = maxW * dim.h/dim.w;
-    if(h > maxH){ h = maxH; w = maxH * dim.w/dim.h; }
-    const xImg = (210-w)/2;
-    try{ doc.addImage(imagenPDF, formatoImg, xImg, 12, w, h); }catch(e){ console.error(e); }
+    // El escudo del club es fijo y siempre se muestra igual, arriba del todo.
+    const dimEscudo = await getImageDimensions(LOGO_BASE64);
+    const maxWEscudo = 34, maxHEscudo = 34;
+    let wEsc = maxWEscudo, hEsc = maxWEscudo * dimEscudo.h/dimEscudo.w;
+    if(hEsc > maxHEscudo){ hEsc = maxHEscudo; wEsc = maxHEscudo * dimEscudo.w/dimEscudo.h; }
+    try{ doc.addImage(LOGO_BASE64, 'PNG', (210-wEsc)/2, 10, wEsc, hEsc); }catch(e){ console.error(e); }
 
-    let y = 12 + h + 12;
+    let y = 10 + hEsc + 10;
     doc.setFont('helvetica','bold');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setTextColor(15,30,61);
     doc.text('CONVOCATORIA', 105, y, {align:'center'});
-    y += 10;
-    doc.setFontSize(14);
+    y += 9;
+    doc.setFontSize(13);
     doc.setTextColor(210,38,48);
     doc.text(`RIVAL: ${(partido.rival || 'POR DEFINIR').toUpperCase()}`, 105, y, {align:'center'});
-    y += 9;
+    y += 8;
 
     doc.setFont('helvetica','normal');
     doc.setFontSize(9.5);
@@ -1694,7 +1816,16 @@ async function generarConvocatoriaPDF(partidoId){
     else if(partido.local === false) metaLine += '   ·   Visitante';
     if(partido.competicion) metaLine += `   ·   ${partido.competicion}`;
     doc.text(metaLine, 105, y, {align:'center'});
-    y += 13;
+    y += 8;
+
+    // Imagen personalizada de esta convocatoria (si se subió alguna): se añade como banner aparte, no sustituye al escudo.
+    if(partido.imagenConvocatoria){
+      const dimBanner = await getImageDimensions(partido.imagenConvocatoria);
+      const maxWBanner = 182, maxHBanner = 42;
+      let wB = maxWBanner, hB = maxWBanner * dimBanner.h/dimBanner.w;
+      if(hB > maxHBanner){ hB = maxHBanner; wB = maxHBanner * dimBanner.w/dimBanner.h; }
+      try{ doc.addImage(partido.imagenConvocatoria, 'JPEG', (210-wB)/2, y, wB, hB); y += hB + 8; }catch(e){ console.error(e); }
+    }
 
     doc.setFont('helvetica','bold');
     doc.setFontSize(12);
@@ -1741,7 +1872,7 @@ async function generarConvocatoriaPDF(partidoId){
 function renderMultasTab(){
   const selJ = document.getElementById('multaJugador');
   const prevJ = selJ.value;
-  selJ.innerHTML = [...state.jugadores].filter(j => !j.filial).sort((a,b)=>a.dorsal-b.dorsal).map(j => `<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('');
+  selJ.innerHTML = [...state.jugadores].filter(j => !j.filial).sort(comparaPosicion).map(j => `<option value="${j.id}">${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</option>`).join('');
   if(prevJ && state.jugadores.find(j=>j.id===prevJ)) selJ.value = prevJ;
 
   const selM = document.getElementById('multaMotivo');
@@ -1750,11 +1881,13 @@ function renderMultasTab(){
   if(prevM){ selM.value = prevM; }
 
   if(!document.getElementById('multaFecha').value) document.getElementById('multaFecha').value = todayISO();
+  if(!document.getElementById('ingresoFecha').value) document.getElementById('ingresoFecha').value = todayISO();
   actualizarImporteSugerido();
 
   renderMultasLog();
   renderMultasResumen();
   renderMultasAlert();
+  renderIngresosList();
 }
 function actualizarImporteSugerido(){
   const selM = document.getElementById('multaMotivo');
@@ -1844,8 +1977,42 @@ function renderMultasResumen(){
 
   const totalCobrado = state.multas.filter(m=>m.pagada).reduce((s,m)=> s + (m.importeFinal!=null?m.importeFinal:m.importeBase),0);
   const totalPendiente = state.multas.filter(m=>!m.pagada).reduce((s,m)=> s + importeActual(m), 0);
+  const totalIngresos = state.ingresos.reduce((s,i) => s + (Number(i.importe)||0), 0);
   document.getElementById('totalCobrado').textContent = money(totalCobrado);
   document.getElementById('totalPendiente').textContent = money(totalPendiente);
+  document.getElementById('totalIngresos').textContent = money(totalIngresos);
+  document.getElementById('totalFondo').textContent = money(totalCobrado + totalIngresos);
+}
+async function registrarIngreso(){
+  const concepto = document.getElementById('ingresoConcepto').value.trim();
+  const importe = parseFloat(document.getElementById('ingresoImporte').value);
+  const fecha = document.getElementById('ingresoFecha').value;
+  if(!concepto || isNaN(importe) || !fecha){ showToast('Completa concepto, importe y fecha.'); return; }
+  const nuevo = {id:uid(), concepto, importe, fecha};
+  state.ingresos.push(nuevo);
+  await guardarColeccion(STORAGE_KEYS.ingresos, {tipo:'upsert', item: nuevo});
+  document.getElementById('ingresoConcepto').value = '';
+  document.getElementById('ingresoImporte').value = '';
+  renderMultasTab();
+  showToast('Ingreso añadido.');
+}
+async function borrarIngreso(id){
+  if(!confirm('¿Borrar este ingreso?')) return;
+  state.ingresos = state.ingresos.filter(i => i.id !== id);
+  await guardarColeccion(STORAGE_KEYS.ingresos, {tipo:'borrar', id});
+  renderMultasTab();
+  showToast('Ingreso eliminado.');
+}
+function renderIngresosList(){
+  const sorted = [...state.ingresos].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  const el = document.getElementById('ingresosList');
+  if(sorted.length === 0){ el.innerHTML = '<div class="empty-state"><p>Aún no hay ingresos registrados.</p></div>'; return; }
+  el.innerHTML = sorted.map(i => `
+    <div class="list-row">
+      <span class="list-name">${escapeHtml(i.concepto)}<br><span class="muted small">${formatDateShort(i.fecha)}</span></span>
+      <strong>${money(i.importe)}</strong>
+      <div class="row-actions"><button class="icon-btn danger" onclick="borrarIngreso('${i.id}')">🗑</button></div>
+    </div>`).join('');
 }
 function renderMultasAlert(){
   const vencidas = state.multas.filter(m => !m.pagada && calcularRecargo(m.fecha) > 0);
@@ -1880,7 +2047,7 @@ function renderTestFisico(){
     wrap.style.display = state.jugadores.length ? 'block' : 'none';
     const testsAsc = [...tests].sort((a,b) => new Date(a.fecha)-new Date(b.fecha));
     document.getElementById('testFisicoHead_' + tipo).innerHTML = '<th>Jugador</th>' + testsAsc.map(t => `<th>${formatDateShort(t.fecha)}</th>`).join('');
-    const jugadoresOrdenados = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal);
+    const jugadoresOrdenados = [...state.jugadores].sort(comparaPosicion);
     document.getElementById('testFisicoBody_' + tipo).innerHTML = jugadoresOrdenados.map(j => {
       const cells = testsAsc.map(t => `<td>${escapeHtml((t.resultados||{})[j.id] || '—')}</td>`).join('');
       return `<tr><td>${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</td>${cells}</tr>`;
@@ -1916,7 +2083,7 @@ async function borrarTestFecha(id){
 function abrirModalResultadosTest(testId){
   const test = state.tests.find(t => t.id === testId);
   const tipo = test.tipo || 'course_navette';
-  const rows = [...state.jugadores].sort((a,b)=>a.dorsal-b.dorsal).map(j => `
+  const rows = [...state.jugadores].sort(comparaPosicion).map(j => `
     <div class="conv-row-top" data-jid="${j.id}" style="padding:6px 0;border-bottom:1px solid var(--border);">
       <span class="dorsal-badge small">${j.dorsal}</span>
       <span class="conv-name">${escapeHtml(formatName(j.nombre))}</span>
@@ -2079,9 +2246,9 @@ async function borrarMotivo(id){
   renderCatalogoList(); renderMultasTab();
 }
 async function confirmarBorrarTodo(){
-  if(!confirm('Esto borrará TODOS los datos: jugadores, entrenadores, partidos, multas, ejercicios y tests. ¿Seguro?')) return;
+  if(!confirm('Esto borrará TODOS los datos: jugadores, entrenadores, partidos, multas, ingresos, ejercicios y tests. ¿Seguro?')) return;
   if(!confirm('De verdad, ¿seguro? Esta acción no se puede deshacer.')) return;
-  state.jugadores = []; state.entrenadores = []; state.partidos = []; state.multas = []; state.ejercicios = []; state.tests = [];
+  state.jugadores = []; state.entrenadores = []; state.partidos = []; state.multas = []; state.ejercicios = []; state.tests = []; state.ingresos = [];
   state.catalogo = CATALOGO_DEFAULT.map(c => ({...c}));
   state.config = {...CONFIG_DEFAULT};
   await Promise.all([
@@ -2092,7 +2259,8 @@ async function confirmarBorrarTodo(){
     saveKey(STORAGE_KEYS.catalogo, state.catalogo),
     saveKey(STORAGE_KEYS.config, state.config),
     saveKey(STORAGE_KEYS.ejercicios, []),
-    saveKey(STORAGE_KEYS.tests, [])
+    saveKey(STORAGE_KEYS.tests, []),
+    saveKey(STORAGE_KEYS.ingresos, [])
   ]);
   renderAll();
   showToast('Datos borrados.');
