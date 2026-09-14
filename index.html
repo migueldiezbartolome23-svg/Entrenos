@@ -466,7 +466,7 @@ canvas{max-width:100%;}
 
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
-const APP_VERSION = '11/09/2026 - 09:30';
+const APP_VERSION = '12/09/2026 - 08:00';
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
 
 const FIREBASE_CONFIG = {
@@ -712,12 +712,12 @@ function migrarConvocatoria(partidos){
 }
 
 async function init(){
-  const [jugadoresLocal, entrenadoresLocal, rosterViejo, config, partidos, multas, catalogo, ejercicios, tests, ingresos] = await Promise.all([
+  const [jugadoresLocal, entrenadoresLocal, rosterViejoLocal, configLocal, partidosLocal, multasLocal, catalogoLocal, ejerciciosLocal, testsLocal, ingresosLocal] = await Promise.all([
     loadKey(STORAGE_KEYS.jugadores, null),
     loadKey(STORAGE_KEYS.entrenadores, null),
     loadKey('roster', null),
     loadKey(STORAGE_KEYS.config, null),
-    loadKey(STORAGE_KEYS.partidos, []),
+    loadKey(STORAGE_KEYS.partidos, null),
     loadKey(STORAGE_KEYS.multas, []),
     loadKey(STORAGE_KEYS.catalogo, null),
     loadKey(STORAGE_KEYS.ejercicios, []),
@@ -725,12 +725,34 @@ async function init(){
     loadKey(STORAGE_KEYS.ingresos, [])
   ]);
 
-  if(jugadoresLocal){
+  // CLAVE: comprobamos primero qué hay YA en Firebase antes de decidir nada. Si una sesión
+  // nueva (local vacío) generase valores por defecto y los guardase sin mirar antes la nube,
+  // pisaría datos reales de otros dispositivos — eso es lo que causaba la pérdida de información.
+  let remoto = null;
+  if(fbDb){
+    try{
+      remoto = (await fbDb.ref('/').once('value')).val();
+      ocultarAvisoSync();
+    }catch(e){
+      console.error('No se pudo leer Firebase al iniciar', e);
+      mostrarAvisoSync();
+    }
+  }
+  const hay = (k) => remoto && remoto[k] !== undefined && remoto[k] !== null;
+
+  // JUGADORES / ENTRENADORES
+  if(hay(STORAGE_KEYS.jugadores)){
+    state.jugadores = normalizarArray(remoto[STORAGE_KEYS.jugadores]);
+    state.entrenadores = hay(STORAGE_KEYS.entrenadores) ? normalizarArray(remoto[STORAGE_KEYS.entrenadores]) : [];
+  } else if(remoto && remoto.roster){
+    state.jugadores = remoto.roster.jugadores || [];
+    state.entrenadores = remoto.roster.entrenadores || [];
+  } else if(jugadoresLocal){
     state.jugadores = jugadoresLocal;
     state.entrenadores = entrenadoresLocal || [];
-  } else if(rosterViejo){
-    state.jugadores = rosterViejo.jugadores || [];
-    state.entrenadores = rosterViejo.entrenadores || [];
+  } else if(rosterViejoLocal){
+    state.jugadores = rosterViejoLocal.jugadores || [];
+    state.entrenadores = rosterViejoLocal.entrenadores || [];
   } else {
     state.jugadores = ROSTER_NOMBRES_DEFAULT.map(([dorsal,nombre]) => ({id:uid(), dorsal, nombre}));
     state.entrenadores = [];
@@ -738,70 +760,42 @@ async function init(){
   await saveKey(STORAGE_KEYS.jugadores, state.jugadores);
   await saveKey(STORAGE_KEYS.entrenadores, state.entrenadores);
 
-  state.config = config || {...CONFIG_DEFAULT};
+  // CONFIG
+  if(hay(STORAGE_KEYS.config)) state.config = remoto[STORAGE_KEYS.config];
+  else if(configLocal) state.config = configLocal;
+  else state.config = {...CONFIG_DEFAULT};
   if(!state.config.diasEntreno) state.config.diasEntreno = [1,3,5];
-  if(!config) await saveKey(STORAGE_KEYS.config, state.config);
+  await saveKey(STORAGE_KEYS.config, state.config);
 
-  if(partidos && partidos.length){
-    state.partidos = migrarConvocatoria(partidos);
+  // PARTIDOS
+  if(hay(STORAGE_KEYS.partidos)){
+    state.partidos = migrarConvocatoria(normalizarArray(remoto[STORAGE_KEYS.partidos]));
+  } else if(partidosLocal && partidosLocal.length){
+    state.partidos = migrarConvocatoria(partidosLocal);
   } else {
     state.partidos = PARTIDOS_CALENDARIO_DEFAULT.map(([jornada, fecha, rival, local]) => {
       const p = {id:uid(), rival, fecha, hora:'', duracion: state.config.duracionPartido, jornada, local, competicion:'Liga', convocatoria:{}};
       state.jugadores.forEach(j => { p.convocatoria[j.id] = {convocado:false, condicion:null, minutos:0}; });
       return p;
     });
-    await saveKey(STORAGE_KEYS.partidos, state.partidos);
   }
-  state.multas = multas || [];
-  state.ejercicios = ejercicios || [];
-  state.tests = tests || [];
-  state.ingresos = ingresos || [];
+  await saveKey(STORAGE_KEYS.partidos, state.partidos);
 
-  if(catalogo){
-    state.catalogo = catalogo;
-  } else {
-    state.catalogo = CATALOGO_DEFAULT;
-    await saveKey(STORAGE_KEYS.catalogo, state.catalogo);
-  }
+  // MULTAS, EJERCICIOS, TESTS, INGRESOS: colecciones que empiezan vacías de forma legítima,
+  // así que aquí basta con preferir siempre lo remoto y si no existe, lo local.
+  state.multas = hay(STORAGE_KEYS.multas) ? normalizarArray(remoto[STORAGE_KEYS.multas]) : (multasLocal || []);
+  state.ejercicios = hay(STORAGE_KEYS.ejercicios) ? normalizarArray(remoto[STORAGE_KEYS.ejercicios]) : (ejerciciosLocal || []);
+  state.tests = hay(STORAGE_KEYS.tests) ? normalizarArray(remoto[STORAGE_KEYS.tests]) : (testsLocal || []);
+  state.ingresos = hay(STORAGE_KEYS.ingresos) ? normalizarArray(remoto[STORAGE_KEYS.ingresos]) : (ingresosLocal || []);
+
+  // CATÁLOGO DE MULTAS
+  if(hay(STORAGE_KEYS.catalogo)) state.catalogo = normalizarArray(remoto[STORAGE_KEYS.catalogo]);
+  else if(catalogoLocal) state.catalogo = catalogoLocal;
+  else state.catalogo = CATALOGO_DEFAULT;
+  await saveKey(STORAGE_KEYS.catalogo, state.catalogo);
 
   renderAll();
-
-  if(fbDb){
-    try{
-      const snap = await fbDb.ref('/').once('value');
-      const remoto = snap.val();
-      if(remoto && (remoto.roster || remoto[STORAGE_KEYS.jugadores])){
-        if(!remoto[STORAGE_KEYS.jugadores] && remoto.roster){
-          // migración de la estructura antigua a la nueva, una sola vez
-          await fbDb.ref(STORAGE_KEYS.jugadores).set(remoto.roster.jugadores || []);
-          await fbDb.ref(STORAGE_KEYS.entrenadores).set(remoto.roster.entrenadores || []);
-          remoto[STORAGE_KEYS.jugadores] = remoto.roster.jugadores || [];
-          remoto[STORAGE_KEYS.entrenadores] = remoto.roster.entrenadores || [];
-        }
-        aplicarDatosRemotos(remoto);
-        renderAll();
-      } else if(remoto && Object.keys(remoto).length){
-        aplicarDatosRemotos(remoto);
-        renderAll();
-      } else {
-        await Promise.all([
-          fbDb.ref(STORAGE_KEYS.jugadores).set(state.jugadores),
-          fbDb.ref(STORAGE_KEYS.entrenadores).set(state.entrenadores),
-          fbDb.ref(STORAGE_KEYS.config).set(state.config),
-          fbDb.ref(STORAGE_KEYS.partidos).set(state.partidos),
-          fbDb.ref(STORAGE_KEYS.multas).set(state.multas),
-          fbDb.ref(STORAGE_KEYS.catalogo).set(state.catalogo),
-          fbDb.ref(STORAGE_KEYS.ejercicios).set(state.ejercicios),
-          fbDb.ref(STORAGE_KEYS.tests).set(state.tests),
-          fbDb.ref(STORAGE_KEYS.ingresos).set(state.ingresos)
-        ]);
-      }
-      activarSincronizacionEnVivo();
-    }catch(e){
-      console.error('No se pudo sincronizar con Firebase', e);
-      mostrarAvisoSync();
-    }
-  }
+  if(fbDb) activarSincronizacionEnVivo();
 }
 
 function aplicarDatosRemotos(remoto){
