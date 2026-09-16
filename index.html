@@ -171,6 +171,10 @@ canvas{max-width:100%;}
 .pizarra-token{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:grab;touch-action:none;user-select:none;z-index:5;}
 .pizarra-token:active{cursor:grabbing;z-index:6;}
 
+.pitch-wrap-h{position:relative;width:100%;aspect-ratio:100/64;background:#2E7D4F;border-radius:10px;overflow:hidden;margin-bottom:10px;touch-action:none;}
+.pizarra-banquillo{display:flex;gap:10px;overflow-x:auto;padding:8px 4px;background:var(--bg);border-radius:10px;-webkit-overflow-scrolling:touch;}
+.banquillo-token{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;width:52px;cursor:pointer;}
+
 .pitch-wrap{position:relative;width:100%;aspect-ratio:68/100;background:#2E7D4F;border-radius:10px;overflow:hidden;margin-bottom:10px;}
 .pitch-lines{position:absolute;inset:0;width:100%;height:100%;}
 .pitch-slot{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;z-index:2;}
@@ -362,8 +366,8 @@ canvas{max-width:100%;}
       </div>
 
       <div class="card">
-        <h3>Test de Cooper</h3>
-        <p class="hint">Igual que el anterior, pero para el test de Cooper (distancia recorrida en 12 minutos).</p>
+        <h3>Test de Velocidad (20-40-60m)</h3>
+        <p class="hint">Tiempos de cada jugador en los tramos de 20, 40 y 60 metros.</p>
         <button class="btn-primary" onclick="abrirModalTestFecha('cooper')" style="width:100%;margin-bottom:10px">+ Nueva fecha de test</button>
         <div id="testFechasList_cooper" class="list-simple"></div>
         <div class="table-scroll" id="testFisicoWrap_cooper" style="display:none">
@@ -466,7 +470,7 @@ canvas{max-width:100%;}
 
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
-const APP_VERSION = '12/09/2026 - 08:00';
+const APP_VERSION = '15/09/2026 - 09:00';
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
 
 const FIREBASE_CONFIG = {
@@ -782,11 +786,16 @@ async function init(){
   await saveKey(STORAGE_KEYS.partidos, state.partidos);
 
   // MULTAS, EJERCICIOS, TESTS, INGRESOS: colecciones que empiezan vacías de forma legítima,
-  // así que aquí basta con preferir siempre lo remoto y si no existe, lo local.
+  // así que aquí basta con preferir siempre lo remoto y si no existe, lo local. Aun así,
+  // guardamos lo decidido para que local y Firebase queden alineados desde el primer render.
   state.multas = hay(STORAGE_KEYS.multas) ? normalizarArray(remoto[STORAGE_KEYS.multas]) : (multasLocal || []);
   state.ejercicios = hay(STORAGE_KEYS.ejercicios) ? normalizarArray(remoto[STORAGE_KEYS.ejercicios]) : (ejerciciosLocal || []);
   state.tests = hay(STORAGE_KEYS.tests) ? normalizarArray(remoto[STORAGE_KEYS.tests]) : (testsLocal || []);
   state.ingresos = hay(STORAGE_KEYS.ingresos) ? normalizarArray(remoto[STORAGE_KEYS.ingresos]) : (ingresosLocal || []);
+  await saveKey(STORAGE_KEYS.multas, state.multas);
+  await saveKey(STORAGE_KEYS.ejercicios, state.ejercicios);
+  await saveKey(STORAGE_KEYS.tests, state.tests);
+  await saveKey(STORAGE_KEYS.ingresos, state.ingresos);
 
   // CATÁLOGO DE MULTAS
   if(hay(STORAGE_KEYS.catalogo)) state.catalogo = normalizarArray(remoto[STORAGE_KEYS.catalogo]);
@@ -1576,48 +1585,70 @@ async function asignarPosicion(slotId, jugadorId){
 
 /* ===================== PIZARRA TÁCTICA (no se guarda, solo en memoria mientras está abierta) ===================== */
 let pizarraEstado = null;
+function pizarraAvatarHtml(j){
+  return j.foto ? `<img src="${j.foto}">` : `<span>${j.dorsal}</span>`;
+}
 function abrirPizarra(){
-  const jugadoresPizarra = [...state.jugadores].sort(comparaPosicion).slice(0, 11);
-  const layout = FORMACIONES_POSICIONES['4-3-3'];
-  const posiciones = {};
-  jugadoresPizarra.forEach((j, i) => {
-    const slot = layout[i] || {x: 10 + (i%9)*9, y: 50};
-    posiciones[j.id] = {x: slot.x, y: slot.y};
-  });
-  pizarraEstado = {jugadores: jugadoresPizarra, posiciones};
+  pizarraEstado = {enCampo: {}};
   openModal(`
     <h3>Pizarra táctica</h3>
-    <p class="hint">Arrastra a los jugadores para dibujar movimientos o jugadas. No se guarda: se reinicia cada vez que la abres.</p>
-    <div class="pitch-wrap" id="pizarraPitch">
-      <svg class="pitch-lines" viewBox="0 0 68 100" preserveAspectRatio="none">
-        <rect x="1" y="1" width="66" height="98" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
-        <line x1="1" y1="50" x2="67" y2="50" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
-        <circle cx="34" cy="50" r="9" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
-        <rect x="14" y="1" width="40" height="16" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
-        <rect x="14" y="83" width="40" height="16" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+    <p class="hint">Toca a un jugador del banquillo para meterlo al campo, arrástralo para moverlo, y tócalo de nuevo para sacarlo. No se guarda: se reinicia cada vez que la abres.</p>
+    <div style="display:flex;justify-content:center;margin-bottom:8px"><img src="${LOGO_BASE64}" style="height:34px;"></div>
+    <div class="pitch-wrap-h" id="pizarraPitch">
+      <svg class="pitch-lines" viewBox="0 0 100 64" preserveAspectRatio="none">
+        <rect x="1" y="1" width="98" height="62" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+        <line x1="50" y1="1" x2="50" y2="63" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+        <circle cx="50" cy="32" r="8" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+        <rect x="1" y="20" width="11" height="24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
+        <rect x="88" y="20" width="11" height="24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
       </svg>
     </div>
+    <div class="pizarra-banquillo" id="pizarraBanquillo"></div>
     <div class="modal-actions">
-      <button type="button" class="btn-secondary" onclick="abrirPizarra()">Reiniciar</button>
+      <button type="button" class="btn-secondary" onclick="reiniciarPizarra()">Reiniciar</button>
       <button type="button" class="btn-primary" onclick="closeModal()">Cerrar</button>
     </div>`);
-  if(jugadoresPizarra.length === 0){
-    document.getElementById('pizarraPitch').insertAdjacentHTML('beforeend', '<p class="hint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#fff;">Añade jugadores primero para poder moverlos aquí.</p>');
-    return;
-  }
-  renderPizarraTokens();
+  renderPizarraBanquillo();
+  renderPizarraCampo();
 }
-function renderPizarraTokens(){
+function reiniciarPizarra(){
+  pizarraEstado = {enCampo: {}};
+  renderPizarraBanquillo();
+  renderPizarraCampo();
+}
+function renderPizarraBanquillo(){
+  const disponibles = [...state.jugadores].sort(comparaPosicion).filter(j => !pizarraEstado.enCampo[j.id]);
+  const el = document.getElementById('pizarraBanquillo');
+  if(state.jugadores.length === 0){ el.innerHTML = '<p class="hint">Añade jugadores primero para poder colocarlos aquí.</p>'; return; }
+  el.innerHTML = disponibles.map(j => `
+    <div class="banquillo-token" onclick="meterAlCampo('${j.id}')">
+      <div class="slot-avatar">${pizarraAvatarHtml(j)}</div>
+      <div class="slot-name">${escapeHtml(formatName(j.nombre))}</div>
+    </div>`).join('') || '<p class="hint">Todo el mundo está ya en el campo.</p>';
+}
+function meterAlCampo(jid){
+  pizarraEstado.enCampo[jid] = {x: 50, y: 32};
+  renderPizarraBanquillo();
+  renderPizarraCampo();
+}
+function sacarDelCampo(jid){
+  delete pizarraEstado.enCampo[jid];
+  renderPizarraBanquillo();
+  renderPizarraCampo();
+}
+function renderPizarraCampo(){
   const wrap = document.getElementById('pizarraPitch');
   wrap.querySelectorAll('.pizarra-token').forEach(el => el.remove());
-  pizarraEstado.jugadores.forEach(j => {
-    const pos = pizarraEstado.posiciones[j.id];
+  Object.keys(pizarraEstado.enCampo).forEach(jid => {
+    const j = state.jugadores.find(x => x.id === jid);
+    if(!j) return;
+    const pos = pizarraEstado.enCampo[jid];
     const el = document.createElement('div');
     el.className = 'pizarra-token';
     el.style.left = pos.x + '%';
     el.style.top = pos.y + '%';
-    el.dataset.jid = j.id;
-    el.innerHTML = `<div class="slot-avatar">${j.foto?`<img src="${j.foto}">`:`<span>${j.dorsal}</span>`}</div><div class="slot-name">${escapeHtml(formatName(j.nombre))}</div>`;
+    el.dataset.jid = jid;
+    el.innerHTML = `<div class="slot-avatar">${pizarraAvatarHtml(j)}</div><div class="slot-name">${escapeHtml(formatName(j.nombre))}</div>`;
     el.addEventListener('pointerdown', iniciarArrastrePizarra);
     wrap.appendChild(el);
   });
@@ -1626,8 +1657,11 @@ function iniciarArrastrePizarra(e){
   e.preventDefault();
   const el = e.currentTarget;
   const wrap = document.getElementById('pizarraPitch');
+  const startX = e.clientX, startY = e.clientY;
+  let movio = false;
   try{ el.setPointerCapture(e.pointerId); }catch(err){}
   function mover(ev){
+    if(Math.abs(ev.clientX-startX) > 4 || Math.abs(ev.clientY-startY) > 4) movio = true;
     const rect = wrap.getBoundingClientRect();
     let x = (ev.clientX - rect.left) / rect.width * 100;
     let y = (ev.clientY - rect.top) / rect.height * 100;
@@ -1635,12 +1669,13 @@ function iniciarArrastrePizarra(e){
     y = Math.max(3, Math.min(97, y));
     el.style.left = x + '%';
     el.style.top = y + '%';
-    if(pizarraEstado) pizarraEstado.posiciones[el.dataset.jid] = {x, y};
+    if(pizarraEstado.enCampo[el.dataset.jid]) pizarraEstado.enCampo[el.dataset.jid] = {x, y};
   }
   function soltar(){
     el.removeEventListener('pointermove', mover);
     el.removeEventListener('pointerup', soltar);
     el.removeEventListener('pointercancel', soltar);
+    if(!movio) sacarDelCampo(el.dataset.jid);
   }
   el.addEventListener('pointermove', mover);
   el.addEventListener('pointerup', soltar);
@@ -2017,8 +2052,19 @@ function renderMultasAlert(){
   banner.innerHTML = `⚠️ ${vencidas.length} multa(s) con más de 2 semanas sin pagar — recargo acumulado: ${money(recargoTotal)}`;
 }
 
-/* ===================== ENTRENAMIENTOS: TESTS FÍSICOS (Course Navette / Cooper) ===================== */
-const TIPOS_TEST = {course_navette:{nombre:'Course Navette', placeholder:'ej. 8.4'}, cooper:{nombre:'Cooper', placeholder:'ej. 2400m'}};
+/* ===================== ENTRENAMIENTOS: TESTS FÍSICOS (Course Navette / Velocidad 20-40-60m) ===================== */
+const TIPOS_TEST = {
+  course_navette:{nombre:'Course Navette', placeholder:'ej. 8.4', splits:false},
+  cooper:{nombre:'Velocidad (20-40-60m)', splits:true}
+};
+function formatearResultadoTest(tipo, valor){
+  if(!valor) return '—';
+  if(TIPOS_TEST[tipo].splits){
+    if(!valor.t20 && !valor.t40 && !valor.t60) return '—';
+    return `20m: ${valor.t20||'–'}s · 40m: ${valor.t40||'–'}s · 60m: ${valor.t60||'–'}s`;
+  }
+  return escapeHtml(valor);
+}
 function renderTestFisico(){
   ['course_navette','cooper'].forEach(tipo => {
     const tests = state.tests.filter(t => (t.tipo||'course_navette') === tipo).sort((a,b) => new Date(b.fecha)-new Date(a.fecha));
@@ -2041,9 +2087,9 @@ function renderTestFisico(){
     wrap.style.display = state.jugadores.length ? 'block' : 'none';
     const testsAsc = [...tests].sort((a,b) => new Date(a.fecha)-new Date(b.fecha));
     document.getElementById('testFisicoHead_' + tipo).innerHTML = '<th>Jugador</th>' + testsAsc.map(t => `<th>${formatDateShort(t.fecha)}</th>`).join('');
-    const jugadoresOrdenados = [...state.jugadores].sort(comparaPosicion);
+    const jugadoresOrdenados = [...state.jugadores].filter(j => !j.filial).sort(comparaPosicion);
     document.getElementById('testFisicoBody_' + tipo).innerHTML = jugadoresOrdenados.map(j => {
-      const cells = testsAsc.map(t => `<td>${escapeHtml((t.resultados||{})[j.id] || '—')}</td>`).join('');
+      const cells = testsAsc.map(t => `<td>${formatearResultadoTest(tipo, (t.resultados||{})[j.id])}</td>`).join('');
       return `<tr><td>${j.dorsal} · ${escapeHtml(formatName(j.nombre))}</td>${cells}</tr>`;
     }).join('');
   });
@@ -2077,15 +2123,24 @@ async function borrarTestFecha(id){
 function abrirModalResultadosTest(testId){
   const test = state.tests.find(t => t.id === testId);
   const tipo = test.tipo || 'course_navette';
-  const rows = [...state.jugadores].sort(comparaPosicion).map(j => `
-    <div class="conv-row-top" data-jid="${j.id}" style="padding:6px 0;border-bottom:1px solid var(--border);">
+  const splits = TIPOS_TEST[tipo].splits;
+  const rows = [...state.jugadores].filter(j => !j.filial).sort(comparaPosicion).map(j => {
+    const val = (test.resultados||{})[j.id];
+    const camposResultado = splits
+      ? `<input type="number" step="0.01" class="test-result-input" data-campo="t20" placeholder="20m (s)" value="${val&&val.t20?val.t20:''}" style="width:56px">
+         <input type="number" step="0.01" class="test-result-input" data-campo="t40" placeholder="40m (s)" value="${val&&val.t40?val.t40:''}" style="width:56px">
+         <input type="number" step="0.01" class="test-result-input" data-campo="t60" placeholder="60m (s)" value="${val&&val.t60?val.t60:''}" style="width:56px">`
+      : `<input type="text" class="test-result-input" placeholder="${TIPOS_TEST[tipo].placeholder}" value="${escapeHtml(val||'')}">`;
+    return `
+    <div class="conv-row-top" data-jid="${j.id}" style="padding:6px 0;border-bottom:1px solid var(--border);gap:5px;flex-wrap:wrap;">
       <span class="dorsal-badge small">${j.dorsal}</span>
       <span class="conv-name">${escapeHtml(formatName(j.nombre))}</span>
-      <input type="text" class="test-result-input" placeholder="${TIPOS_TEST[tipo].placeholder}" value="${escapeHtml((test.resultados||{})[j.id]||'')}">
-    </div>`).join('');
+      ${camposResultado}
+    </div>`;
+  }).join('');
   openModal(`
     <h3>Resultados · ${TIPOS_TEST[tipo].nombre} · ${formatDateLong(test.fecha)}</h3>
-    <p class="hint">Anota el resultado en el formato que uses habitualmente. Déjalo en blanco si ese día no hizo el test.</p>
+    <p class="hint">${splits ? 'Anota el tiempo en segundos de cada tramo (ej. 3.20). Déjalo en blanco si no se hizo ese tramo.' : 'Anota el resultado en el formato que uses habitualmente. Déjalo en blanco si ese día no hizo el test.'}</p>
     <div class="convocatoria-list">${rows}</div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
@@ -2094,11 +2149,20 @@ function abrirModalResultadosTest(testId){
 }
 async function guardarResultadosTest(testId){
   const test = state.tests.find(t => t.id === testId);
+  const tipo = test.tipo || 'course_navette';
+  const splits = TIPOS_TEST[tipo].splits;
   if(!test.resultados) test.resultados = {};
   document.querySelectorAll('#modalContent .conv-row-top[data-jid]').forEach(row => {
     const jid = row.dataset.jid;
-    const val = row.querySelector('.test-result-input').value.trim();
-    test.resultados[jid] = val;
+    if(splits){
+      const t20 = row.querySelector('[data-campo="t20"]').value.trim();
+      const t40 = row.querySelector('[data-campo="t40"]').value.trim();
+      const t60 = row.querySelector('[data-campo="t60"]').value.trim();
+      test.resultados[jid] = (t20||t40||t60) ? {t20, t40, t60} : null;
+    } else {
+      const val = row.querySelector('.test-result-input').value.trim();
+      test.resultados[jid] = val;
+    }
   });
   await guardarColeccion(STORAGE_KEYS.tests, {tipo:'upsert', item: test});
   closeModal();
