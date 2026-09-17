@@ -477,7 +477,7 @@ canvas{max-width:100%;}
 
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
-const APP_VERSION = '16/09/2026 - 07:40';
+const APP_VERSION = '17/09/2026 - 08:20';
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
 
 const FIREBASE_CONFIG = {
@@ -1822,7 +1822,7 @@ async function generarConvocatoriaPDF(partidoId){
     const doc = new jsPDF();
 
     const convocados = state.jugadores.filter(j => (partido.convocatoria||{})[j.id]?.convocado).sort(comparaPosicion);
-    const desconvocados = state.jugadores.filter(j => !(partido.convocatoria||{})[j.id]?.convocado).sort(comparaPosicion);
+    const desconvocados = state.jugadores.filter(j => !j.filial && !(partido.convocatoria||{})[j.id]?.convocado).sort(comparaPosicion);
 
     // El escudo del club es fijo y siempre se muestra igual, arriba del todo.
     const dimEscudo = await getImageDimensions(LOGO_BASE64);
