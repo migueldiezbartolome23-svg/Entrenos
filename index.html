@@ -168,12 +168,19 @@ canvas{max-width:100%;}
 .dia-toggle{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:#fff;color:var(--muted);font-weight:600;cursor:pointer;}
 .dia-toggle.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 
-.pizarra-token{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:grab;touch-action:none;user-select:none;z-index:5;}
+.pizarra-token{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:grab;touch-action:none;user-select:none;z-index:5;padding:7px;margin:-7px;}
 .pizarra-token:active{cursor:grabbing;z-index:6;}
 
 .pitch-wrap-h{position:relative;width:100%;aspect-ratio:100/64;background:#2E7D4F;border-radius:10px;overflow:hidden;margin-bottom:10px;touch-action:none;}
 .pizarra-banquillo{display:flex;gap:10px;overflow-x:auto;padding:8px 4px;background:var(--bg);border-radius:10px;-webkit-overflow-scrolling:touch;}
-.banquillo-token{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;width:52px;cursor:pointer;}
+.banquillo-token{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;width:44px;cursor:pointer;}
+
+.pizarra-token .slot-avatar,.banquillo-token .slot-avatar{border-radius:50%;background:rgba(255,255,255,.95);border:1.5px solid var(--navy);display:flex;align-items:center;justify-content:center;overflow:hidden;font-weight:700;color:var(--navy);margin:0 auto;}
+.pizarra-token .slot-avatar img,.banquillo-token .slot-avatar img{width:100%;height:100%;object-fit:cover;display:block;}
+.pizarra-token .slot-avatar{width:18px;height:18px;font-size:7px;border-width:1px;}
+.pizarra-token .slot-name{display:none;}
+.banquillo-token .slot-avatar{width:34px;height:34px;font-size:10px;}
+.banquillo-token .slot-name{font-size:8.5px;color:var(--text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44px;}
 
 .pitch-wrap{position:relative;width:100%;aspect-ratio:68/100;background:#2E7D4F;border-radius:10px;overflow:hidden;margin-bottom:10px;}
 .pitch-lines{position:absolute;inset:0;width:100%;height:100%;}
@@ -470,7 +477,7 @@ canvas{max-width:100%;}
 
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
-const APP_VERSION = '15/09/2026 - 09:00';
+const APP_VERSION = '16/09/2026 - 07:40';
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
 
 const FIREBASE_CONFIG = {
@@ -2055,7 +2062,7 @@ function renderMultasAlert(){
 /* ===================== ENTRENAMIENTOS: TESTS FÍSICOS (Course Navette / Velocidad 20-40-60m) ===================== */
 const TIPOS_TEST = {
   course_navette:{nombre:'Course Navette', placeholder:'ej. 8.4', splits:false},
-  cooper:{nombre:'Velocidad (20-40-60m)', splits:true}
+  cooper:{nombre:'Velocidad (20-40-60m)', placeholder:'ej. 8.50', splits:false}
 };
 function formatearResultadoTest(tipo, valor){
   if(!valor) return '—';
