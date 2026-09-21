@@ -182,6 +182,11 @@ canvas{max-width:100%;}
 .banquillo-token .slot-avatar{width:34px;height:34px;font-size:10px;}
 .banquillo-token .slot-name{font-size:8.5px;color:var(--text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44px;}
 
+.rival-avatar{background:#D22630 !important;border-color:#fff !important;color:#fff !important;}
+.pizarra-fullscreen{position:fixed !important;inset:0 !important;z-index:950;width:100vw !important;height:100vh !important;max-width:none !important;max-height:none !important;border-radius:0 !important;display:flex;flex-direction:column;padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px)) !important;}
+.pizarra-fullscreen .pitch-wrap-h{flex:1;height:auto;margin-bottom:8px;}
+.pizarra-fullscreen .pizarra-hide-fs{display:none !important;}
+
 .pitch-wrap{position:relative;width:100%;aspect-ratio:68/100;background:#2E7D4F;border-radius:10px;overflow:hidden;margin-bottom:10px;}
 .pitch-lines{position:absolute;inset:0;width:100%;height:100%;}
 .pitch-slot{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;z-index:2;}
@@ -477,7 +482,7 @@ canvas{max-width:100%;}
 
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
-const APP_VERSION = '17/09/2026 - 08:20';
+const APP_VERSION = '18/09/2026 - 07:15';
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
 
 const FIREBASE_CONFIG = {
@@ -1596,11 +1601,11 @@ function pizarraAvatarHtml(j){
   return j.foto ? `<img src="${j.foto}">` : `<span>${j.dorsal}</span>`;
 }
 function abrirPizarra(){
-  pizarraEstado = {enCampo: {}};
+  pizarraEstado = {enCampo: {}, rivalEnCampo: {}};
   openModal(`
     <h3>Pizarra táctica</h3>
-    <p class="hint">Toca a un jugador del banquillo para meterlo al campo, arrástralo para moverlo, y tócalo de nuevo para sacarlo. No se guarda: se reinicia cada vez que la abres.</p>
-    <div style="display:flex;justify-content:center;margin-bottom:8px"><img src="${LOGO_BASE64}" style="height:34px;"></div>
+    <p class="hint pizarra-hide-fs">Toca a un jugador del banquillo para meterlo al campo, arrástralo para moverlo, y tócalo de nuevo para sacarlo. No se guarda: se reinicia cada vez que la abres.</p>
+    <div class="pizarra-hide-fs" style="display:flex;justify-content:center;margin-bottom:8px"><img src="${LOGO_BASE64}" style="height:34px;"></div>
     <div class="pitch-wrap-h" id="pizarraPitch">
       <svg class="pitch-lines" viewBox="0 0 100 64" preserveAspectRatio="none">
         <rect x="1" y="1" width="98" height="62" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
@@ -1610,17 +1615,43 @@ function abrirPizarra(){
         <rect x="88" y="20" width="11" height="24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="0.4"/>
       </svg>
     </div>
-    <div class="pizarra-banquillo" id="pizarraBanquillo"></div>
+    <div class="pizarra-hide-fs">
+      <p class="muted small" style="margin:2px 0 4px">Mi equipo</p>
+      <div class="pizarra-banquillo" id="pizarraBanquillo"></div>
+      <p class="muted small" style="margin:8px 0 4px">Rival (rojo/blanco)</p>
+      <div class="pizarra-banquillo" id="pizarraBanquilloRival"></div>
+    </div>
     <div class="modal-actions">
       <button type="button" class="btn-secondary" onclick="reiniciarPizarra()">Reiniciar</button>
-      <button type="button" class="btn-primary" onclick="closeModal()">Cerrar</button>
+      <button type="button" class="btn-secondary" id="pizarraFsBtn" onclick="toggleFullscreenPizarra()">Pantalla completa</button>
+      <button type="button" class="btn-primary" onclick="cerrarPizarra()">Cerrar</button>
     </div>`);
   renderPizarraBanquillo();
+  renderPizarraBanquilloRival();
   renderPizarraCampo();
 }
+function cerrarPizarra(){
+  const modal = document.getElementById('modalContent');
+  if(modal.classList.contains('pizarra-fullscreen')){
+    try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
+    modal.classList.remove('pizarra-fullscreen');
+  }
+  closeModal();
+}
+function toggleFullscreenPizarra(){
+  const modal = document.getElementById('modalContent');
+  const activo = modal.classList.toggle('pizarra-fullscreen');
+  document.getElementById('pizarraFsBtn').textContent = activo ? 'Salir de pantalla completa' : 'Pantalla completa';
+  if(activo){
+    try{ modal.requestFullscreen && modal.requestFullscreen().catch(()=>{}); }catch(e){}
+  } else {
+    try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){}
+  }
+}
 function reiniciarPizarra(){
-  pizarraEstado = {enCampo: {}};
+  pizarraEstado = {enCampo: {}, rivalEnCampo: {}};
   renderPizarraBanquillo();
+  renderPizarraBanquilloRival();
   renderPizarraCampo();
 }
 function renderPizarraBanquillo(){
@@ -1643,6 +1674,24 @@ function sacarDelCampo(jid){
   renderPizarraBanquillo();
   renderPizarraCampo();
 }
+function renderPizarraBanquilloRival(){
+  const disponibles = Array.from({length:11}, (_,i)=>i+1).filter(n => !pizarraEstado.rivalEnCampo[n]);
+  const el = document.getElementById('pizarraBanquilloRival');
+  el.innerHTML = disponibles.map(n => `
+    <div class="banquillo-token" onclick="meterRivalAlCampo(${n})">
+      <div class="slot-avatar rival-avatar"><span>${n}</span></div>
+    </div>`).join('') || '<p class="hint">Los 11 están ya en el campo.</p>';
+}
+function meterRivalAlCampo(n){
+  pizarraEstado.rivalEnCampo[n] = {x: 50, y: 32};
+  renderPizarraBanquilloRival();
+  renderPizarraCampo();
+}
+function sacarRivalDelCampo(n){
+  delete pizarraEstado.rivalEnCampo[n];
+  renderPizarraBanquilloRival();
+  renderPizarraCampo();
+}
 function renderPizarraCampo(){
   const wrap = document.getElementById('pizarraPitch');
   wrap.querySelectorAll('.pizarra-token').forEach(el => el.remove());
@@ -1655,7 +1704,20 @@ function renderPizarraCampo(){
     el.style.left = pos.x + '%';
     el.style.top = pos.y + '%';
     el.dataset.jid = jid;
+    el.dataset.equipo = 'propio';
     el.innerHTML = `<div class="slot-avatar">${pizarraAvatarHtml(j)}</div><div class="slot-name">${escapeHtml(formatName(j.nombre))}</div>`;
+    el.addEventListener('pointerdown', iniciarArrastrePizarra);
+    wrap.appendChild(el);
+  });
+  Object.keys(pizarraEstado.rivalEnCampo).forEach(n => {
+    const pos = pizarraEstado.rivalEnCampo[n];
+    const el = document.createElement('div');
+    el.className = 'pizarra-token';
+    el.style.left = pos.x + '%';
+    el.style.top = pos.y + '%';
+    el.dataset.jid = n;
+    el.dataset.equipo = 'rival';
+    el.innerHTML = `<div class="slot-avatar rival-avatar"><span>${n}</span></div>`;
     el.addEventListener('pointerdown', iniciarArrastrePizarra);
     wrap.appendChild(el);
   });
@@ -1663,6 +1725,7 @@ function renderPizarraCampo(){
 function iniciarArrastrePizarra(e){
   e.preventDefault();
   const el = e.currentTarget;
+  const esRival = el.dataset.equipo === 'rival';
   const wrap = document.getElementById('pizarraPitch');
   const startX = e.clientX, startY = e.clientY;
   let movio = false;
@@ -1676,13 +1739,17 @@ function iniciarArrastrePizarra(e){
     y = Math.max(3, Math.min(97, y));
     el.style.left = x + '%';
     el.style.top = y + '%';
-    if(pizarraEstado.enCampo[el.dataset.jid]) pizarraEstado.enCampo[el.dataset.jid] = {x, y};
+    const estado = esRival ? pizarraEstado.rivalEnCampo : pizarraEstado.enCampo;
+    if(estado[el.dataset.jid]) estado[el.dataset.jid] = {x, y};
   }
   function soltar(){
     el.removeEventListener('pointermove', mover);
     el.removeEventListener('pointerup', soltar);
     el.removeEventListener('pointercancel', soltar);
-    if(!movio) sacarDelCampo(el.dataset.jid);
+    if(!movio){
+      if(esRival) sacarRivalDelCampo(el.dataset.jid);
+      else sacarDelCampo(el.dataset.jid);
+    }
   }
   el.addEventListener('pointermove', mover);
   el.addEventListener('pointerup', soltar);
