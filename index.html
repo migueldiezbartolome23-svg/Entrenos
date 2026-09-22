@@ -404,6 +404,15 @@ canvas{max-width:100%;}
         <input type="text" id="ejercicioBuscar" placeholder="Buscar por título o categoría..." oninput="renderEjerciciosList()">
         <div id="ejerciciosList" class="list-simple" style="margin-top:10px"></div>
       </div>
+
+      <div class="card">
+        <div class="section-header" style="margin-bottom:10px">
+          <h3 style="margin:0">Balón parado</h3>
+          <button class="btn-primary" onclick="abrirModalBalonParado()">+ Añadir</button>
+        </div>
+        <input type="text" id="bpBuscar" placeholder="Buscar por nombre..." oninput="renderBalonParadoList()">
+        <div id="balonParadoList" class="list-simple" style="margin-top:10px"></div>
+      </div>
     </section>
 
     <!-- TAB AJUSTES -->
@@ -482,7 +491,7 @@ canvas{max-width:100%;}
 
 <script>
 /* ===================== CONSTANTES Y ESTADO ===================== */
-const APP_VERSION = '18/09/2026 - 07:15';
+const APP_VERSION = '21/09/2026 - 09:10';
 const STORAGE_PREFIX = 'cdsp_cadeteA_';
 
 const FIREBASE_CONFIG = {
@@ -499,7 +508,7 @@ try{
   firebase.initializeApp(FIREBASE_CONFIG);
   fbDb = firebase.database();
 }catch(e){ console.error('Error inicializando Firebase', e); }
-const STORAGE_KEYS = { jugadores:'jugadores', entrenadores:'entrenadores', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas', ejercicios:'ejercicios', tests:'tests_fisicos', ingresos:'ingresos' };
+const STORAGE_KEYS = { jugadores:'jugadores', entrenadores:'entrenadores', config:'config', partidos:'partidos', multas:'multas', catalogo:'catalogo_multas', ejercicios:'ejercicios', tests:'tests_fisicos', ingresos:'ingresos', balonParado:'balon_parado' };
 
 const CATALOGO_DEFAULT = [
   ['Retraso injustificado en entrenamiento',1.00],
@@ -625,7 +634,7 @@ const FORMACIONES_POSICIONES = {
   ]
 };
 
-let state = { jugadores:[], entrenadores:[], config:{...CONFIG_DEFAULT}, partidos:[], multas:[], catalogo:[], ejercicios:[], tests:[], ingresos:[] };
+let state = { jugadores:[], entrenadores:[], config:{...CONFIG_DEFAULT}, partidos:[], multas:[], catalogo:[], ejercicios:[], tests:[], ingresos:[], balonParado:[] };
 let charts = { minutos:null, estados:null, evolucion:null };
 let currentSort = { key:'minutos', dir:'desc' };
 let minutosView = 'calendario';
@@ -700,6 +709,7 @@ function getArrayForKey(key){
   if(key === STORAGE_KEYS.ejercicios) return state.ejercicios;
   if(key === STORAGE_KEYS.tests) return state.tests;
   if(key === STORAGE_KEYS.ingresos) return state.ingresos;
+  if(key === STORAGE_KEYS.balonParado) return state.balonParado;
   return [];
 }
 function setArrayForKey(key, arr){
@@ -711,6 +721,7 @@ function setArrayForKey(key, arr){
   else if(key === STORAGE_KEYS.ejercicios){ state.ejercicios = arr; renderEntrenamientosTab(); }
   else if(key === STORAGE_KEYS.tests){ state.tests = arr; renderEntrenamientosTab(); }
   else if(key === STORAGE_KEYS.ingresos){ state.ingresos = arr; renderMultasTab(); }
+  else if(key === STORAGE_KEYS.balonParado){ state.balonParado = arr; renderEntrenamientosTab(); }
 }
 
 function migrarConvocatoria(partidos){
@@ -728,7 +739,7 @@ function migrarConvocatoria(partidos){
 }
 
 async function init(){
-  const [jugadoresLocal, entrenadoresLocal, rosterViejoLocal, configLocal, partidosLocal, multasLocal, catalogoLocal, ejerciciosLocal, testsLocal, ingresosLocal] = await Promise.all([
+  const [jugadoresLocal, entrenadoresLocal, rosterViejoLocal, configLocal, partidosLocal, multasLocal, catalogoLocal, ejerciciosLocal, testsLocal, ingresosLocal, balonParadoLocal] = await Promise.all([
     loadKey(STORAGE_KEYS.jugadores, null),
     loadKey(STORAGE_KEYS.entrenadores, null),
     loadKey('roster', null),
@@ -738,7 +749,8 @@ async function init(){
     loadKey(STORAGE_KEYS.catalogo, null),
     loadKey(STORAGE_KEYS.ejercicios, []),
     loadKey(STORAGE_KEYS.tests, []),
-    loadKey(STORAGE_KEYS.ingresos, [])
+    loadKey(STORAGE_KEYS.ingresos, []),
+    loadKey(STORAGE_KEYS.balonParado, [])
   ]);
 
   // CLAVE: comprobamos primero qué hay YA en Firebase antes de decidir nada. Si una sesión
@@ -804,10 +816,12 @@ async function init(){
   state.ejercicios = hay(STORAGE_KEYS.ejercicios) ? normalizarArray(remoto[STORAGE_KEYS.ejercicios]) : (ejerciciosLocal || []);
   state.tests = hay(STORAGE_KEYS.tests) ? normalizarArray(remoto[STORAGE_KEYS.tests]) : (testsLocal || []);
   state.ingresos = hay(STORAGE_KEYS.ingresos) ? normalizarArray(remoto[STORAGE_KEYS.ingresos]) : (ingresosLocal || []);
+  state.balonParado = hay(STORAGE_KEYS.balonParado) ? normalizarArray(remoto[STORAGE_KEYS.balonParado]) : (balonParadoLocal || []);
   await saveKey(STORAGE_KEYS.multas, state.multas);
   await saveKey(STORAGE_KEYS.ejercicios, state.ejercicios);
   await saveKey(STORAGE_KEYS.tests, state.tests);
   await saveKey(STORAGE_KEYS.ingresos, state.ingresos);
+  await saveKey(STORAGE_KEYS.balonParado, state.balonParado);
 
   // CATÁLOGO DE MULTAS
   if(hay(STORAGE_KEYS.catalogo)) state.catalogo = normalizarArray(remoto[STORAGE_KEYS.catalogo]);
@@ -832,6 +846,7 @@ function aplicarDatosRemotos(remoto){
   if(remoto[STORAGE_KEYS.ejercicios]) state.ejercicios = normalizarArray(remoto[STORAGE_KEYS.ejercicios]);
   if(remoto[STORAGE_KEYS.tests]) state.tests = normalizarArray(remoto[STORAGE_KEYS.tests]);
   if(remoto[STORAGE_KEYS.ingresos]) state.ingresos = normalizarArray(remoto[STORAGE_KEYS.ingresos]);
+  if(remoto[STORAGE_KEYS.balonParado]) state.balonParado = normalizarArray(remoto[STORAGE_KEYS.balonParado]);
 }
 
 function activarSincronizacionEnVivo(){
@@ -874,6 +889,10 @@ function activarSincronizacionEnVivo(){
   fbDb.ref(STORAGE_KEYS.ingresos).on('value', snap => {
     state.ingresos = snap.val() ? normalizarArray(snap.val()) : [];
     renderMultasTab();
+  });
+  fbDb.ref(STORAGE_KEYS.balonParado).on('value', snap => {
+    state.balonParado = snap.val() ? normalizarArray(snap.val()) : [];
+    renderEntrenamientosTab();
   });
 
   document.addEventListener('visibilitychange', () => {
@@ -2303,6 +2322,123 @@ async function borrarEjercicio(id){
 function renderEntrenamientosTab(){
   renderTestFisico();
   renderEjerciciosList();
+  renderBalonParadoList();
+}
+
+/* ===================== ENTRENAMIENTOS: BALÓN PARADO ===================== */
+function leerArchivoGenerico(file, maxMB){
+  return new Promise((resolve, reject) => {
+    if(file.size > maxMB*1024*1024){
+      reject(new Error(`El archivo pesa demasiado (máximo ${maxMB} MB). Prueba con un archivo más ligero o hazle una foto a la jugada en vez de escanearla.`));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+let bpArchivoPendiente = undefined;
+let bpArchivoTipoPendiente = undefined;
+async function previewArchivoBalonParado(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const esPdf = file.type === 'application/pdf';
+  try{
+    if(esPdf){
+      bpArchivoPendiente = await leerArchivoGenerico(file, 4);
+      bpArchivoTipoPendiente = 'pdf';
+      document.getElementById('mBpArchivoPreview').outerHTML = `<div class="img-preview-box" id="mBpArchivoPreview">📄 PDF listo (${file.name})</div>`;
+    } else {
+      bpArchivoPendiente = await leerYRedimensionarImagen(file, 900, 0.78);
+      bpArchivoTipoPendiente = 'imagen';
+      document.getElementById('mBpArchivoPreview').outerHTML = `<div class="img-preview-box" id="mBpArchivoPreview"><img src="${bpArchivoPendiente}"></div>`;
+    }
+  }catch(err){
+    showToast(err.message || 'No se pudo procesar el archivo.');
+    e.target.value = '';
+  }
+}
+function abrirModalBalonParado(id){
+  const item = id ? state.balonParado.find(b => b.id === id) : null;
+  bpArchivoPendiente = undefined; bpArchivoTipoPendiente = undefined;
+  openModal(`
+    <h3>${item ? 'Editar jugada' : 'Nueva jugada a balón parado'}</h3>
+    <label>Nombre<input type="text" id="mBpNombre" placeholder="Ej: Córner cerrado" value="${item?escapeHtml(item.nombre):''}"></label>
+    <div class="form-grid">
+      <label>Tipo<select id="mBpTipo">
+        <option value="ataque" ${item&&item.tipo==='ataque'?'selected':''}>Ataque</option>
+        <option value="defensa" ${item&&item.tipo==='defensa'?'selected':''}>Defensa</option>
+      </select></label>
+      <label>Lado<select id="mBpLado">
+        <option value="izquierda" ${item&&item.lado==='izquierda'?'selected':''}>Izquierda</option>
+        <option value="centro" ${!item||item.lado==='centro'?'selected':''}>Centro</option>
+        <option value="derecha" ${item&&item.lado==='derecha'?'selected':''}>Derecha</option>
+      </select></label>
+    </div>
+    <label>Documento (PDF o foto, máx. 4 MB)<input type="file" accept=".pdf,image/*" id="mBpArchivo" onchange="previewArchivoBalonParado(event)"></label>
+    <div class="img-preview-box ${item&&item.archivo?'':'empty'}" id="mBpArchivoPreview">
+      ${item&&item.archivo ? (item.archivoTipo==='pdf' ? '📄 PDF ya guardado' : `<img src="${item.archivo}">`) : 'Sin archivo seleccionado'}
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="guardarBalonParado('${id||''}')">Guardar</button>
+    </div>`);
+}
+async function guardarBalonParado(id){
+  const nombre = document.getElementById('mBpNombre').value.trim();
+  const tipo = document.getElementById('mBpTipo').value;
+  const lado = document.getElementById('mBpLado').value;
+  if(!nombre){ showToast('Ponle un nombre a la jugada.'); return; }
+  let itemFinal;
+  if(id){
+    const b = state.balonParado.find(x => x.id === id);
+    b.nombre = nombre; b.tipo = tipo; b.lado = lado;
+    if(bpArchivoPendiente !== undefined){ b.archivo = bpArchivoPendiente; b.archivoTipo = bpArchivoTipoPendiente; }
+    itemFinal = b;
+  } else {
+    if(!bpArchivoPendiente){ showToast('Adjunta un PDF o una foto.'); return; }
+    itemFinal = {id:uid(), nombre, tipo, lado, archivo: bpArchivoPendiente, archivoTipo: bpArchivoTipoPendiente};
+    state.balonParado.push(itemFinal);
+  }
+  await guardarColeccion(STORAGE_KEYS.balonParado, {tipo:'upsert', item: itemFinal});
+  closeModal();
+  renderBalonParadoList();
+  showToast('Guardado.');
+}
+async function borrarBalonParado(id){
+  if(!confirm('¿Borrar esta jugada?')) return;
+  state.balonParado = state.balonParado.filter(b => b.id !== id);
+  await guardarColeccion(STORAGE_KEYS.balonParado, {tipo:'borrar', id});
+  renderBalonParadoList();
+  showToast('Eliminada.');
+}
+function verBalonParado(id){
+  const item = state.balonParado.find(b => b.id === id);
+  if(!item || !item.archivo) return;
+  const w = window.open();
+  if(!w){ showToast('El navegador ha bloqueado la ventana. Permite ventanas emergentes para verlo.'); return; }
+  if(item.archivoTipo === 'pdf') w.location.href = item.archivo;
+  else w.document.write(`<title>${escapeHtml(item.nombre)}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${item.archivo}" style="max-width:100%;max-height:100vh;"></body>`);
+}
+const LADO_LABEL = {izquierda:'Izquierda', centro:'Centro', derecha:'Derecha'};
+function renderBalonParadoList(){
+  const q = (document.getElementById('bpBuscar').value || '').toLowerCase();
+  const filtrados = state.balonParado.filter(b => !q || b.nombre.toLowerCase().includes(q));
+  const el = document.getElementById('balonParadoList');
+  if(state.balonParado.length === 0){ el.innerHTML = '<div class="empty-state"><p>Aún no has guardado ninguna jugada.</p></div>'; return; }
+  if(filtrados.length === 0){ el.innerHTML = '<div class="empty-state"><p>No hay jugadas que coincidan con la búsqueda.</p></div>'; return; }
+  el.innerHTML = filtrados.map(b => `
+    <div class="list-row">
+      <span class="list-name" onclick="verBalonParado('${b.id}')" style="cursor:pointer">
+        <strong>${escapeHtml(b.nombre)}</strong><br>
+        <span class="muted small">${b.tipo==='ataque'?'Ataque':'Defensa'} · ${LADO_LABEL[b.lado]||'Centro'} · ${b.archivoTipo==='pdf'?'PDF':'Foto'}</span>
+      </span>
+      <div class="row-actions">
+        <button class="icon-btn" onclick="abrirModalBalonParado('${b.id}')">✎</button>
+        <button class="icon-btn danger" onclick="borrarBalonParado('${b.id}')">🗑</button>
+      </div>
+    </div>`).join('');
 }
 
 /* ===================== AJUSTES ===================== */
@@ -2378,9 +2514,9 @@ async function borrarMotivo(id){
   renderCatalogoList(); renderMultasTab();
 }
 async function confirmarBorrarTodo(){
-  if(!confirm('Esto borrará TODOS los datos: jugadores, entrenadores, partidos, multas, ingresos, ejercicios y tests. ¿Seguro?')) return;
+  if(!confirm('Esto borrará TODOS los datos: jugadores, entrenadores, partidos, multas, ingresos, ejercicios, tests y balón parado. ¿Seguro?')) return;
   if(!confirm('De verdad, ¿seguro? Esta acción no se puede deshacer.')) return;
-  state.jugadores = []; state.entrenadores = []; state.partidos = []; state.multas = []; state.ejercicios = []; state.tests = []; state.ingresos = [];
+  state.jugadores = []; state.entrenadores = []; state.partidos = []; state.multas = []; state.ejercicios = []; state.tests = []; state.ingresos = []; state.balonParado = [];
   state.catalogo = CATALOGO_DEFAULT.map(c => ({...c}));
   state.config = {...CONFIG_DEFAULT};
   await Promise.all([
@@ -2392,7 +2528,8 @@ async function confirmarBorrarTodo(){
     saveKey(STORAGE_KEYS.config, state.config),
     saveKey(STORAGE_KEYS.ejercicios, []),
     saveKey(STORAGE_KEYS.tests, []),
-    saveKey(STORAGE_KEYS.ingresos, [])
+    saveKey(STORAGE_KEYS.ingresos, []),
+    saveKey(STORAGE_KEYS.balonParado, [])
   ]);
   renderAll();
   showToast('Datos borrados.');
